@@ -40,7 +40,6 @@ export default function App(){
 
   // grid state
   const [rows,setRows] = useState([]) // [{letters:Array, result:Array}]
-  const [cursor,setCursor] = useState(0)
   const [current,setCurrent] = useState(Array(pattern.length).fill(""))
   const [keyboard,setKeyboard] = useState({})
   const [status,setStatus] = useState("playing")
@@ -111,7 +110,7 @@ export default function App(){
     if(status!=="playing") return
     const i = nextEmptyIndex(current,0)
     if(i!==-1){
-      const n=[...current]; n[i]=l; setCurrent(n); setCursor(i+1)
+      const n=[...current]; n[i]=l; setCurrent(n)
     }
   }
 
@@ -119,7 +118,7 @@ export default function App(){
     if(status!=="playing") return
     const i = prevFilledIndex(current,current.length-1)
     if(i!==-1){
-      const n=[...current]; n[i]=""; setCurrent(n); setCursor(i)
+      const n=[...current]; n[i]=""; setCurrent(n)
     }
   }
 
@@ -176,7 +175,6 @@ export default function App(){
       localStorage.setItem(storageKey,"lost")
     }
 
-    // new row
     const base = pattern.map(c => (c!==null ? c : ""))
     setCurrent(base)
   }
@@ -197,10 +195,16 @@ export default function App(){
     alert("Copied!")
   }
 
-  // ---------- UI ----------
+  // ---------- styles ----------
   const cellStyle = (r)=>({
-    width:36,height:44,display:"flex",alignItems:"center",justifyContent:"center",
-    fontWeight:900,borderRadius:6,
+    width:"clamp(32px,9vw,36px)",
+    height:"clamp(38px,11vw,44px)",
+    display:"flex",
+    alignItems:"center",
+    justifyContent:"center",
+    fontWeight:900,
+    fontSize:"clamp(16px,4.5vw,20px)",
+    borderRadius:6,
     background:
       r==="correct"?"#22c55e":
       r==="present"?"#eab308":
@@ -208,30 +212,53 @@ export default function App(){
   })
 
   return(
-    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#0f0f0f,#2a0f1f)",color:"#fff",padding:20}}>
-      <div style={{maxWidth:420,margin:"auto",background:"#111",borderRadius:24,padding:20}}>
+    <div style={{
+      minHeight:"100dvh",
+      background:"linear-gradient(135deg,#0f0f0f,#2a0f1f)",
+      color:"#fff",
+      padding:"env(safe-area-inset-top) 12px 12px"
+    }}>
+      <div style={{
+        width:"100%",
+        maxWidth:420,
+        margin:"0 auto",
+        background:"#111",
+        borderRadius:24,
+        padding:16,
+        boxSizing:"border-box"
+      }}>
         <h1 style={{textAlign:"center",fontSize:32,fontWeight:900}}>🎨 Art Guess</h1>
 
-        <canvas ref={canvasRef} style={{width:"100%",borderRadius:16,border:"2px solid #333",margin:"12px 0"}}/>
+        <canvas
+          ref={canvasRef}
+          style={{
+            width:"100%",
+            maxWidth:360,
+            aspectRatio:"1/1",
+            borderRadius:16,
+            border:"2px solid #333",
+            margin:"12px auto",
+            display:"block"
+          }}
+        />
 
         {/* GRID */}
         <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:12}}>
           {rows.map((row,i)=>(
-  <div key={i} style={{display:"flex",gap:4,justifyContent:"center"}}>
-    {row.letters.map((c,j)=>(
-      <div key={j} style={cellStyle(row.result[j])}>{c}</div>
-    ))}
-  </div>
-))}
+            <div key={i} style={{display:"flex",gap:4,justifyContent:"center"}}>
+              {row.letters.map((c,j)=>(
+                <div key={j} style={cellStyle(row.result[j])}>{c}</div>
+              ))}
+            </div>
+          ))}
 
-{status==="playing" && rows.length < MAX_GUESSES && (
-  <div style={{display:"flex",gap:4,justifyContent:"center"}}>
-    {current.map((c,i)=>(
-      <div key={i} style={cellStyle("")}>{c}</div>
-    ))}
-  </div>
-)}
-
+          {status==="playing" && rows.length < MAX_GUESSES && (
+            <div style={{display:"flex",gap:4,justifyContent:"center"}}>
+              {current.map((c,i)=>(
+                <div key={i} style={cellStyle("")}>{c}</div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* KEYBOARD */}
@@ -243,9 +270,10 @@ export default function App(){
                 <button key={k} onClick={()=>handleKey(k)}
                   style={{
                     flex:k==="ENTER"||k==="⌫"?2:1,
-                    padding:12,
+                    padding:"clamp(10px,2.5vw,14px)",
                     borderRadius:8,
                     fontWeight:900,
+                    fontSize:"clamp(12px,3vw,16px)",
                     background:s==="correct"?"#22c55e":s==="present"?"#eab308":s==="absent"?"#333":"#666"
                   }}>{k}</button>
               )
