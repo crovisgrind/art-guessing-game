@@ -55,9 +55,9 @@ export default function App(){
   }
 
   const backspace=()=>{
-    const i=[...current].map((c,i)=>pattern[i]===null?i:-1).filter(i=>i!==-1&&current[i]).pop()
-    if(i!==undefined){
-      const n=[...current];n[i]="";setCurrent(n)
+    const idx=[...current].map((c,i)=>pattern[i]===null&&c?i:-1).filter(i=>i!==-1).pop()
+    if(idx!==undefined){
+      const n=[...current];n[idx]="";setCurrent(n)
     }
   }
 
@@ -107,8 +107,12 @@ export default function App(){
   return(
     <div style={{minHeight:"100dvh",background:"#0f0f0f",color:"#fff",padding:12}}>
       <style>{`
-        .tile{transition:transform .6s;transform-style:preserve-3d}
+        .tile-wrap{perspective:800px}
+        .tile{width:100%;height:100%;position:relative;transform-style:preserve-3d;transition:transform .6s}
         .tile.revealed{transform:rotateY(180deg)}
+        .tile-face{position:absolute;inset:0;backface-visibility:hidden;border-radius:6px}
+        .tile-back{background:#111}
+        .tile-front{transform:rotateY(180deg);overflow:hidden}
         .key:active{transform:scale(.94)}
       `}</style>
 
@@ -117,14 +121,19 @@ export default function App(){
       {/* TILE GRID */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:4,maxWidth:360,margin:"auto"}}>
         {[...Array(36)].map((_,i)=>(
-          <div key={i} className={`tile ${revealed.includes(i)?"revealed":""}`} style={{
-            width:"100%",
-            aspectRatio:"1/1",
-            backgroundImage:`url(${painting.image})`,
-            backgroundSize:"600%",
-            backgroundPosition:`${(i%6)*20}% ${Math.floor(i/6)*20}%`,
-            borderRadius:6
-          }}/>
+          <div key={i} className="tile-wrap">
+            <div className={`tile ${revealed.includes(i)?"revealed":""}`}>
+              <div className="tile-face tile-back"/>
+              <div className="tile-face tile-front">
+                <img src={painting.image} style={{
+                  width:"600%",
+                  height:"600%",
+                  objectFit:"cover",
+                  objectPosition:`${(i%6)*20}% ${Math.floor(i/6)*20}%`
+                }}/>
+              </div>
+            </div>
+          </div>
         ))}
       </div>
 
