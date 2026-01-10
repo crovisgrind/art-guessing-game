@@ -11,6 +11,7 @@ const keyboardLayout = [
   ["ENTER","Z","X","C","V","B","N","M","⌫"]
 ]
 
+// ---------- utils ----------
 const normalize = t =>
   t.normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^A-Z]/gi,"").toUpperCase()
 
@@ -23,27 +24,29 @@ function getDailyPainting(){
   return paintings[diff % paintings.length]
 }
 
+// ---------- app ----------
 export default function App(){
   const painting = getDailyPainting()
   const target = painting.artist
   const normTarget = normalize(target)
   const storageKey = "art-guess-"+painting.id
 
-  const pattern = useMemo(
-    ()=>target.split("").map(c => (isLetter(normalize(c)) ? null : c)),
-    [target]
+  // build pattern with spaces/hyphens
+  const pattern = useMemo(() =>
+    target.split("").map(c => (isLetter(normalize(c)) ? null : c)), [target]
   )
-  const slots = pattern.filter(c=>c===null).length
 
-  const [rows,setRows] = useState([])
-  const [current,setCurrent] = useState(pattern.map(c=>c||""))
+  const slots = pattern.filter(c => c===null).length
+
+  // grid state
+  const [rows,setRows] = useState([]) // [{letters:Array, result:Array}]
+  const [current,setCurrent] = useState(Array(pattern.length).fill(""))
   const [keyboard,setKeyboard] = useState({})
   const [status,setStatus] = useState("playing")
 
+  // canvas
   const [pool,setPool] = useState([])
   const [revealed,setRevealed] = useState([])
-  const [anim,setAnim] = useState(false)
-
   const canvasRef = useRef()
 
   // init
@@ -52,6 +55,7 @@ export default function App(){
     setPool(tiles)
     setRevealed([tiles[0]])
 
+    // prefill spaces/hyphens
     const base = pattern.map(c => (c!==null ? c : ""))
     setCurrent(base)
 
@@ -60,56 +64,51 @@ export default function App(){
     if(saved==="lost") setStatus("lost")
   },[])
 
-  // draw canvas
+  // canvas draw
   useEffect(()=>{
-    const img = new Image()
-    img.src = painting.image
-    img.onload = ()=>{
-      const c = canvasRef.current
-      const ctx = c.getContext("2d")
-      const size = 360
-      c.width = size
-      c.height = size
+    const img=new Image()
+    img.src=painting.image
+    img.onload=()=>{
+      const c=canvasRef.current
+      const ctx=c.getContext("2d")
+      const size=360
+      c.width=size; c.height=size
       ctx.clearRect(0,0,size,size)
 
-      const side = Math.min(img.width,img.height)
-      const ox = (img.width - side)/2
-      const oy = (img.height - side)/2
-      const t = side / GRID
-      const d = size / GRID
+      const side=Math.min(img.width,img.height)
+      const ox=(img.width-side)/2
+      const oy=(img.height-side)/2
+      const t=side/GRID
+      const d=size/GRID
 
       revealed.forEach(i=>{
-        const col = i % GRID
-        const row = Math.floor(i / GRID)
-        ctx.drawImage(img, ox + col*t, oy + row*t, t, t, col*d, row*d, d, d)
+        const col=i%GRID,row=Math.floor(i/GRID)
+        ctx.drawImage(img,ox+col*t,oy+row*t,t,t,col*d,row*d,d,d)
       })
     }
   },[revealed,painting])
 
-  const revealOne = ()=>{
-    setAnim(true)
-    setTimeout(()=>setAnim(false),300)
+  const revealOne = () =>
     setRevealed(r => (r.length < pool.length ? [...r, pool[r.length]] : r))
-  }
 
-  // typing
-  const nextEmptyIndex = ()=>{
-    for(let i=0;i<current.length;i++){
-      if(pattern[i]===null && !current[i]) return i
+  // ---------- typing ----------
+  const nextEmptyIndex = (arr,from=0)=>{
+    for(let i=from;i<arr.length;i++){
+      if(pattern[i]===null && !arr[i]) return i
     }
     return -1
   }
 
-  const prevFilledIndex = ()=>{
-    for(let i=current.length-1;i>=0;i--){
-      if(pattern[i]===null && current[i]) return i
+  const prevFilledIndex = (arr,from)=>{
+    for(let i=from;i>=0;i--){
+      if(pattern[i]===null && arr[i]) return i
     }
     return -1
   }
 
-  const type = l=>{
+  const typeLetter = l=>{
     if(status!=="playing") return
-    const i = nextEmptyIndex()
+    const i = nextEmptyIndex(current,0)
     if(i!==-1){
       const n=[...current]; n[i]=l; setCurrent(n)
     }
@@ -117,7 +116,7 @@ export default function App(){
 
   const backspace = ()=>{
     if(status!=="playing") return
-    const i = prevFilledIndex()
+    const i = prevFilledIndex(current,current.length-1)
     if(i!==-1){
       const n=[...current]; n[i]=""; setCurrent(n)
     }
@@ -128,35 +127,40 @@ export default function App(){
     const letters = current.filter((c,i)=>pattern[i]===null).join("")
     if(letters.length!==slots) return
 
-    const g = normalize(letters)
-    const t = normTarget.split("")
-    const a = g.split("")
+    const guessNorm = normalize(letters)
+    const targetArr = normTarget.split("")
+    const guessArr = guessNorm.split("")
 
     const res = Array(slots).fill("absent")
-    const cnt = {}
+    const counts={}
 
-    t.forEach((c,i)=>{
-      if(a[i]===c) res[i]="correct"
-      else cnt[c]=(cnt[c]||0)+1
+    targetArr.forEach((c,i)=>{
+      if(guessArr[i]===c) res[i]="correct"
+      else counts[c]=(counts[c]||0)+1
     })
-    a.forEach((c,i)=>{
+
+    guessArr.forEach((c,i)=>{
       if(res[i]==="correct") return
-      if(cnt[c]){
-        res[i]="present"; cnt[c]--
+      if(counts[c]){
+        res[i]="present"; counts[c]--
       }
     })
 
+    // map back to pattern positions
     let k=0
-    const full = pattern.map(p => p!==null ? "skip" : res[k++])
+    const fullRes = pattern.map(p => p!==null ? "skip" : res[k++])
 
-    setRows(r=>[...r,{letters:[...current], result:full}])
+    setRows(r=>[...r,{letters:[...current], result:fullRes}])
 
+    // update keyboard
     const kb={...keyboard}
-    a.forEach((c,i)=>{ if(kb[c]!=="correct") kb[c]=res[i] })
+    guessArr.forEach((c,i)=>{
+      if(kb[c]==="correct") return
+      kb[c]=res[i]
+    })
     setKeyboard(kb)
 
-    if(g===normTarget){
-      if(navigator.vibrate) navigator.vibrate([40,40,80])
+    if(guessNorm===normTarget){
       setStatus("won")
       setRevealed(pool)
       localStorage.setItem(storageKey,"won")
@@ -164,7 +168,6 @@ export default function App(){
     }
 
     revealOne()
-    if(navigator.vibrate) navigator.vibrate(20)
 
     if(rows.length+1>=MAX_GUESSES){
       setStatus("lost")
@@ -172,16 +175,17 @@ export default function App(){
       localStorage.setItem(storageKey,"lost")
     }
 
-    setCurrent(pattern.map(c=>c||""))
+    const base = pattern.map(c => (c!==null ? c : ""))
+    setCurrent(base)
   }
 
   const handleKey = k=>{
     if(k==="ENTER") submit()
     else if(k==="⌫") backspace()
-    else if(isLetter(k)) type(k)
+    else if(isLetter(k)) typeLetter(k)
   }
 
-  // share
+  // ---------- share ----------
   const share = ()=>{
     const rowsEmojis = rows.map(r =>
       r.result.filter(x=>x!=="skip").map(x=>x==="correct"?"🟩":x==="present"?"🟨":"⬛").join("")
@@ -191,7 +195,8 @@ export default function App(){
     alert("Copied!")
   }
 
-  const cellStyle = r=>({
+  // ---------- styles ----------
+  const cellStyle = (r)=>({
     width:"clamp(32px,9vw,36px)",
     height:"clamp(38px,11vw,44px)",
     display:"flex",
@@ -207,11 +212,22 @@ export default function App(){
   })
 
   return(
-    <div style={{minHeight:"100dvh",background:"linear-gradient(135deg,#0f0f0f,#2a0f1f)",color:"#fff",padding:"env(safe-area-inset-top) 12px 12px"}}>
-      <style>{`.key:active{transform:scale(.94)}`}</style>
-
-      <div style={{maxWidth:420,margin:"0 auto",background:"#111",borderRadius:24,padding:16}}>
-        <h1 style={{textAlign:"center"}}>🎨 Art Guess</h1>
+    <div style={{
+      minHeight:"100dvh",
+      background:"linear-gradient(135deg,#0f0f0f,#2a0f1f)",
+      color:"#fff",
+      padding:"env(safe-area-inset-top) 12px 12px"
+    }}>
+      <div style={{
+        width:"100%",
+        maxWidth:420,
+        margin:"0 auto",
+        background:"#111",
+        borderRadius:24,
+        padding:16,
+        boxSizing:"border-box"
+      }}>
+        <h1 style={{textAlign:"center",fontSize:32,fontWeight:900}}>🎨 Art Guess</h1>
 
         <canvas
           ref={canvasRef}
@@ -222,23 +238,22 @@ export default function App(){
             borderRadius:16,
             border:"2px solid #333",
             margin:"12px auto",
-            display:"block",
-            transition:"transform .3s, opacity .3s",
-            transform:anim?"scale(1.05)":"scale(1)",
-            opacity:anim?0.8:1
+            display:"block"
           }}
         />
 
-        <div style={{display:"flex",flexDirection:"column",gap:6}}>
-          {rows.map((r,i)=>(
-            <div key={i} style={{display:"flex",justifyContent:"center",gap:4}}>
-              {r.letters.map((c,j)=>(
-                <div key={j} style={cellStyle(r.result[j])}>{c}</div>
+        {/* GRID */}
+        <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:12}}>
+          {rows.map((row,i)=>(
+            <div key={i} style={{display:"flex",gap:4,justifyContent:"center"}}>
+              {row.letters.map((c,j)=>(
+                <div key={j} style={cellStyle(row.result[j])}>{c}</div>
               ))}
             </div>
           ))}
-          {status==="playing" && rows.length<MAX_GUESSES && (
-            <div style={{display:"flex",justifyContent:"center",gap:4}}>
+
+          {status==="playing" && rows.length < MAX_GUESSES && (
+            <div style={{display:"flex",gap:4,justifyContent:"center"}}>
               {current.map((c,i)=>(
                 <div key={i} style={cellStyle("")}>{c}</div>
               ))}
@@ -246,20 +261,20 @@ export default function App(){
           )}
         </div>
 
+        {/* KEYBOARD */}
         {keyboardLayout.map((row,i)=>(
-          <div key={i} style={{display:"flex",gap:6,marginTop:8}}>
+          <div key={i} style={{display:"flex",gap:6,marginBottom:6}}>
             {row.map(k=>{
               const s=keyboard[k]
               return(
-                <button className="key" key={k} onClick={()=>handleKey(k)}
+                <button key={k} onClick={()=>handleKey(k)}
                   style={{
                     flex:k==="ENTER"||k==="⌫"?2:1,
                     padding:"clamp(10px,2.5vw,14px)",
                     borderRadius:8,
                     fontWeight:900,
                     fontSize:"clamp(12px,3vw,16px)",
-                    background:s==="correct"?"#22c55e":s==="present"?"#eab308":s==="absent"?"#333":"#666",
-                    color:"#fff"
+                    background:s==="correct"?"#22c55e":s==="present"?"#eab308":s==="absent"?"#333":"#666"
                   }}>{k}</button>
               )
             })}
@@ -268,7 +283,7 @@ export default function App(){
 
         {status!=="playing"&&(
           <div style={{textAlign:"center",marginTop:12}}>
-            <h2>{status==="won"?"🎉 "+target:"❌ "+target}</h2>
+            <h2>{status==="won"?"🎉 Correct!":"❌ "+target}</h2>
             <button onClick={share} style={{marginTop:10,padding:12,background:"#fff",color:"#000",borderRadius:10,fontWeight:900}}>Share</button>
           </div>
         )}
