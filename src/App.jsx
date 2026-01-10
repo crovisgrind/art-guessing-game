@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { paintings } from "./paintings"
 
-const GRID = 6
-const TILES = 36
 const MAX_GUESSES = 6
+const GAME_CONFIGS = [
+  { grid: 6, tiles: 36, points: 100 },
+  { grid: 8, tiles: 64, points: 150 },
+  { grid: 10, tiles: 100, points: 200 }
+]
 
 const keyboardLayout = [
   ["Q","W","E","R","T","Y","U","I","O","P"],
@@ -17,19 +20,35 @@ const normalize = t =>
 
 const isLetter = c => /^[A-Z]$/.test(c)
 
-function getDailyPainting(){
+function getDailyPaintings(){
   const start = new Date(2024,0,1)
   const today = new Date()
   const diff = Math.floor((today - start) / (1000*60*60*24))
-  return paintings[diff % paintings.length]
+  
+  return GAME_CONFIGS.map((_, idx) => {
+    const paintingIdx = (diff * 3 + idx) % paintings.length
+    return paintings[paintingIdx]
+  })
+}
+
+function calculateScore(basePoints, guessesUsed){
+  const penalty = (guessesUsed - 1) * 10
+  return Math.max(basePoints - penalty, 10)
 }
 
 // ---------- app ----------
 export default function App(){
-  const painting = getDailyPainting()
+  const dailyPaintings = getDailyPaintings()
+  const [currentGameIdx, setCurrentGameIdx] = useState(0)
+  const [totalScore, setTotalScore] = useState(0)
+  const [gameScores, setGameScores] = useState([null, null, null])
+  
+  const painting = dailyPaintings[currentGameIdx]
+  const config = GAME_CONFIGS[currentGameIdx]
   const target = painting.artist
   const normTarget = normalize(target)
-  const storageKey = "art-guess-"+painting.id
+  const storageKey = `art-guess-${painting.id}-${config.grid}`
+  const totalScoreKey = "art-guess-daily-score"
 
   const pattern = useMemo(() =>
     target.split("").map(c => (isLetter(normalize(c)) ? null : c)), [target]
@@ -46,6 +65,16 @@ export default function App(){
   const [revealed,setRevealed] = useState([])
   const canvasRef = useRef()
 
+  // ---------- load scores ----------
+  useEffect(()=>{
+    const savedTotalScore = localStorage.getItem(totalScoreKey)
+    if(savedTotalScore){
+      const data = JSON.parse(savedTotalScore)
+      setTotalScore(data.score || 0)
+      setGameScores(data.games || [null, null, null])
+    }
+  },[])
+
   // ---------- init with anti-cheat ----------
   useEffect(()=>{
     let data = localStorage.getItem(storageKey)
@@ -53,9 +82,10 @@ export default function App(){
       data = JSON.parse(data)
     } else {
       data = {
-        tiles: [...Array(TILES).keys()].sort(()=>Math.random()-0.5),
+        tiles: [...Array(config.tiles).keys()].sort(()=>Math.random()-0.5),
         revealedCount: 1,
-        status: "playing"
+        status: "playing",
+        score: null
       }
       localStorage.setItem(storageKey, JSON.stringify(data))
     }
@@ -66,7 +96,9 @@ export default function App(){
 
     const base = pattern.map(c => (c!==null ? c : ""))
     setCurrent(base)
-  },[])
+    setRows([])
+    setKeyboard({})
+  },[currentGameIdx])
 
   // ---------- canvas ----------
   useEffect(()=>{
@@ -82,15 +114,15 @@ export default function App(){
       const side=Math.min(img.width,img.height)
       const ox=(img.width-side)/2
       const oy=(img.height-side)/2
-      const t=side/GRID
-      const d=size/GRID
+      const t=side/config.grid
+      const d=size/config.grid
 
       revealed.forEach(i=>{
-        const col=i%GRID,row=Math.floor(i/GRID)
+        const col=i%config.grid,row=Math.floor(i/config.grid)
         ctx.drawImage(img,ox+col*t,oy+row*t,t,t,col*d,row*d,d,d)
       })
     }
-  },[revealed,painting])
+  },[revealed,painting,config.grid])
 
   const revealOne = ()=>{
     setRevealed(r=>{
@@ -166,7 +198,8 @@ export default function App(){
     let k=0
     const fullRes = pattern.map(p => p!==null ? "skip" : res[k++])
 
-    setRows(r=>[...r,{letters:[...current], result:fullRes}])
+    const newRows = [...rows,{letters:[...current], result:fullRes}]
+    setRows(newRows)
 
     const kb={...keyboard}
     guessArr.forEach((c,i)=>{
@@ -180,18 +213,36 @@ export default function App(){
       setRevealed(pool)
       setStatus("won")
 
+      const score = calculateScore(config.points, newRows.length)
+      
       const saved = JSON.parse(localStorage.getItem(storageKey))
       localStorage.setItem(storageKey, JSON.stringify({
         ...saved,
         status:"won",
-        revealedCount: pool.length
+        revealedCount: pool.length,
+        score
       }))
+
+      // Update total score
+      const newGameScores = [...gameScores]
+      if(newGameScores[currentGameIdx] === null){
+        newGameScores[currentGameIdx] = score
+        const newTotal = totalScore + score
+        setTotalScore(newTotal)
+        setGameScores(newGameScores)
+        
+        localStorage.setItem(totalScoreKey, JSON.stringify({
+          score: newTotal,
+          games: newGameScores
+        }))
+      }
+      
       return
     }
 
     revealOne()
 
-    if(rows.length+1>=MAX_GUESSES){
+    if(newRows.length>=MAX_GUESSES){
       setStatus("lost")
       setRevealed(pool)
 
@@ -199,8 +250,21 @@ export default function App(){
       localStorage.setItem(storageKey, JSON.stringify({
         ...saved,
         status:"lost",
-        revealedCount: pool.length
+        revealedCount: pool.length,
+        score: 0
       }))
+
+      // Update with 0 score
+      const newGameScores = [...gameScores]
+      if(newGameScores[currentGameIdx] === null){
+        newGameScores[currentGameIdx] = 0
+        setGameScores(newGameScores)
+        
+        localStorage.setItem(totalScoreKey, JSON.stringify({
+          score: totalScore,
+          games: newGameScores
+        }))
+      }
     }
 
     const base = pattern.map(c => (c!==null ? c : ""))
@@ -219,7 +283,7 @@ export default function App(){
     const rowsEmojis = rows.map(r =>
       r.result.filter(x=>x!=="skip").map(x=>x==="correct"?"🟩":x==="present"?"🟨":"⬛").join("")
     ).join("\n")
-    const text = `🎨 ART GUESS\n\n${rowsEmojis}\n\n${location.href}`
+    const text = `🎨 ART GUESS - Game ${currentGameIdx + 1}\nScore: ${gameScores[currentGameIdx] || 0}/${config.points}\nTotal: ${totalScore} pts\n\n${rowsEmojis}\n\n${location.href}`
     
     if(navigator.share){
       navigator.share({text}).catch(()=>{})
@@ -268,8 +332,64 @@ export default function App(){
         <h1 style={{
           textAlign:"center",
           fontSize:"clamp(20px,5vw,28px)",
-          margin:"8px 0 12px 0"
+          margin:"8px 0 4px 0"
         }}>🎨 Art Guess</h1>
+
+        {/* Score Panel */}
+        <div style={{
+          background:"#1a1a1a",
+          borderRadius:12,
+          padding:"12px",
+          marginBottom:12,
+          border:"2px solid #333"
+        }}>
+          <div style={{
+            display:"flex",
+            justifyContent:"space-between",
+            alignItems:"center",
+            marginBottom:8
+          }}>
+            <div>
+              <div style={{fontSize:"clamp(11px,2.5vw,13px)",color:"#999"}}>Daily Score</div>
+              <div style={{fontSize:"clamp(20px,5vw,28px)",fontWeight:900,color:"#22c55e"}}>{totalScore}</div>
+            </div>
+            <div style={{textAlign:"right"}}>
+              <div style={{fontSize:"clamp(11px,2.5vw,13px)",color:"#999"}}>Max Today</div>
+              <div style={{fontSize:"clamp(16px,4vw,20px)",fontWeight:700,color:"#666"}}>450</div>
+            </div>
+          </div>
+          
+          {/* Game Tabs */}
+          <div style={{display:"flex",gap:4}}>
+            {GAME_CONFIGS.map((cfg,idx)=>(
+              <button
+                key={idx}
+                onClick={()=>setCurrentGameIdx(idx)}
+                disabled={status==="playing"}
+                style={{
+                  flex:1,
+                  padding:"10px 4px",
+                  borderRadius:8,
+                  border:"none",
+                  background: currentGameIdx===idx ? "#22c55e" : gameScores[idx]!==null ? "#333" : "#222",
+                  color: currentGameIdx===idx ? "#000" : "#fff",
+                  fontWeight:900,
+                  fontSize:"clamp(11px,2.5vw,13px)",
+                  cursor: status==="playing" ? "not-allowed" : "pointer",
+                  opacity: status==="playing" && currentGameIdx!==idx ? 0.5 : 1,
+                  transition:"all 0.3s ease",
+                  touchAction:"manipulation",
+                  WebkitTapHighlightColor:"transparent"
+                }}
+              >
+                <div>{cfg.grid}×{cfg.grid}</div>
+                <div style={{fontSize:"clamp(9px,2vw,11px)",marginTop:2}}>
+                  {gameScores[idx]!==null ? `${gameScores[idx]}/${cfg.points}` : `${cfg.points} pts`}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
 
         <canvas
           ref={canvasRef}
@@ -285,6 +405,24 @@ export default function App(){
             touchAction:"none"
           }}
         />
+
+        {/* Guesses & Points Info */}
+        {status==="playing" && (
+          <div style={{
+            display:"flex",
+            justifyContent:"space-between",
+            padding:"8px 12px",
+            background:"#1a1a1a",
+            borderRadius:8,
+            marginBottom:8,
+            fontSize:"clamp(11px,2.5vw,13px)"
+          }}>
+            <span>Guesses: {rows.length}/{MAX_GUESSES}</span>
+            <span style={{color:"#22c55e"}}>
+              Potential: {calculateScore(config.points, rows.length + 1)} pts
+            </span>
+          </div>
+        )}
 
         <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:8}}>
           {rows.map((row,i)=>(
@@ -340,20 +478,49 @@ export default function App(){
             <h2 style={{
               fontSize:"clamp(18px,4.5vw,24px)",
               margin:"8px 0"
-            }}>{status==="won"?"🎉 Correct!":"❌ "+target}</h2>
-            <button onClick={share} style={{
-              marginTop:12,
-              padding:"14px 28px",
-              background:"#fff",
-              color:"#000",
-              borderRadius:10,
-              fontWeight:900,
-              fontSize:"clamp(14px,3.5vw,16px)",
-              border:"none",
-              cursor:"pointer",
-              touchAction:"manipulation",
-              WebkitTapHighlightColor:"transparent"
-            }}>Share</button>
+            }}>
+              {status==="won"
+                ? `🎉 +${gameScores[currentGameIdx]} pts!`
+                : `❌ ${target}`
+              }
+            </h2>
+            {status==="won" && (
+              <div style={{
+                fontSize:"clamp(12px,3vw,14px)",
+                color:"#999",
+                marginBottom:8
+              }}>
+                Solved in {rows.length} {rows.length===1?"guess":"guesses"}
+              </div>
+            )}
+            <div style={{display:"flex",gap:8,justifyContent:"center",marginTop:12}}>
+              <button onClick={share} style={{
+                padding:"14px 28px",
+                background:"#fff",
+                color:"#000",
+                borderRadius:10,
+                fontWeight:900,
+                fontSize:"clamp(14px,3.5vw,16px)",
+                border:"none",
+                cursor:"pointer",
+                touchAction:"manipulation",
+                WebkitTapHighlightColor:"transparent"
+              }}>Share</button>
+              {currentGameIdx < 2 && (
+                <button onClick={()=>setCurrentGameIdx(currentGameIdx+1)} style={{
+                  padding:"14px 28px",
+                  background:"#22c55e",
+                  color:"#000",
+                  borderRadius:10,
+                  fontWeight:900,
+                  fontSize:"clamp(14px,3.5vw,16px)",
+                  border:"none",
+                  cursor:"pointer",
+                  touchAction:"manipulation",
+                  WebkitTapHighlightColor:"transparent"
+                }}>Next Game →</button>
+              )}
+            </div>
           </div>
         )}
       </div>
