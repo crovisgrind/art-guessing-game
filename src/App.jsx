@@ -172,59 +172,66 @@ export default function App(){
 
   // ---------- canvas ----------
   useEffect(()=>{
-    if(isLoading || !canvasRef.current || revealed.length === 0 || pool.length === 0) return
+    if(isLoading || !canvasRef.current || pool.length === 0) return
+    if(revealed.length === 0) return
     
-    const img=new Image()
-    img.src=painting.image
-    img.onload=()=>{
-      const c=canvasRef.current
-      if(!c) return
-      
-      const ctx=c.getContext("2d")
-      const size=360
-      c.width=size
-      c.height=size
-      
-      // Clear with black background
-      ctx.fillStyle = "#000"
-      ctx.fillRect(0,0,size,size)
+    // Debounce canvas updates
+    const timeoutId = setTimeout(() => {
+      const img=new Image()
+      img.src=painting.image
+      img.onload=()=>{
+        const c=canvasRef.current
+        if(!c) return
+        
+        const ctx=c.getContext("2d")
+        const size=360
+        c.width=size
+        c.height=size
+        
+        // Clear with black background
+        ctx.fillStyle = "#000"
+        ctx.fillRect(0,0,size,size)
 
-      const side=Math.min(img.width,img.height)
-      const ox=(img.width-side)/2
-      const oy=(img.height-side)/2
-      const t=side/config.grid
-      const d=size/config.grid
+        const side=Math.min(img.width,img.height)
+        const ox=(img.width-side)/2
+        const oy=(img.height-side)/2
+        const t=side/config.grid
+        const d=size/config.grid
 
-      console.log(`Drawing ${revealed.length} tiles for ${config.grid}x${config.grid} grid`)
+        console.log(`Drawing ${revealed.length} tiles for ${config.grid}x${config.grid} grid`)
 
-      // Only draw revealed tiles with bounds check
-      revealed.forEach(i=>{
-        if(i >= config.tiles || i < 0) {
-          console.warn(`Invalid tile index ${i} for grid ${config.grid}`)
-          return
-        }
-        const col=i%config.grid
-        const row=Math.floor(i/config.grid)
-        ctx.drawImage(img,ox+col*t,oy+row*t,t,t,col*d,row*d,d,d)
-      })
-    }
+        // Only draw revealed tiles with bounds check
+        revealed.forEach(i=>{
+          if(i >= config.tiles || i < 0) {
+            console.warn(`Invalid tile index ${i} for grid ${config.grid}`)
+            return
+          }
+          const col=i%config.grid
+          const row=Math.floor(i/config.grid)
+          ctx.drawImage(img,ox+col*t,oy+row*t,t,t,col*d,row*d,d,d)
+        })
+      }
+    }, 100)
+    
+    return () => clearTimeout(timeoutId)
   },[revealed,painting.image,config.grid,pool.length,config.tiles,isLoading])
 
   const revealOne = ()=>{
-    setRevealed(r=>{
-      if(r.length>=pool.length) return r
-      const newCount = r.length + 1
-      const newTiles = pool.slice(0,newCount)
-
-      const saved = JSON.parse(localStorage.getItem(storageKey))
+    const saved = JSON.parse(localStorage.getItem(storageKey))
+    const currentCount = saved.revealedCount || 1
+    const newCount = Math.min(currentCount + 1, pool.length)
+    
+    if(newCount > currentCount){
+      const newTiles = pool.slice(0, newCount)
+      
       localStorage.setItem(storageKey, JSON.stringify({
         ...saved,
-        revealedCount:newCount,
+        revealedCount: newCount,
         rows: rows
       }))
-
-      return newTiles
-    })
+      
+      setRevealed(newTiles)
+    }
   }
 
   // ---------- typing ----------
@@ -297,7 +304,8 @@ export default function App(){
     if(guessNorm===normTarget){
       if(navigator.vibrate) navigator.vibrate(200)
 
-      setRevealed(pool)
+      const finalPool = [...pool]
+      setRevealed(finalPool)
       setStatus("won")
 
       const score = calculateScore(config.points, newRows.length)
@@ -306,7 +314,7 @@ export default function App(){
       localStorage.setItem(storageKey, JSON.stringify({
         ...saved,
         status:"won",
-        revealedCount: pool.length,
+        revealedCount: finalPool.length,
         score,
         rows: newRows
       }))
@@ -332,13 +340,14 @@ export default function App(){
 
     if(newRows.length>=MAX_GUESSES){
       setStatus("lost")
-      setRevealed(pool)
+      const finalPool = [...pool]
+      setRevealed(finalPool)
 
       const saved = JSON.parse(localStorage.getItem(storageKey))
       localStorage.setItem(storageKey, JSON.stringify({
         ...saved,
         status:"lost",
-        revealedCount: pool.length,
+        revealedCount: finalPool.length,
         score: 0,
         rows: newRows
       }))
