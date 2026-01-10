@@ -365,9 +365,10 @@ export default function App(){
         background:"#111",
         padding:"12px",
         boxSizing:"border-box",
-        minHeight:"100dvh",
-        overflowY:"auto",
-        overflowX:"hidden"
+        height:"100dvh",
+        overflowY:"scroll",
+        overflowX:"hidden",
+        WebkitOverflowScrolling:"touch"
       }}>
         <h1 style={{
           textAlign:"center",
@@ -386,7 +387,6 @@ export default function App(){
         }}>
           <div style={{fontSize:"clamp(12px,3vw,14px)",color:"#999",marginBottom:4}}>Daily Score</div>
           <div style={{fontSize:"clamp(32px,8vw,42px)",fontWeight:900,color:"#22c55e",letterSpacing:"-1px"}}>{totalScore}</div>
-          <div style={{fontSize:"clamp(11px,2.5vw,13px)",color:"#666"}}>of 450 points</div>
           
           {/* Progress dots */}
           <div style={{display:"flex",gap:8,justifyContent:"center",marginTop:12}}>
