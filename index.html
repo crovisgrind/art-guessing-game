@@ -2,15 +2,72 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    
+    <!-- Primary Meta Tags -->
+    <title>Guess the Artist - Daily Art Game</title>
+    <meta name="title" content="Guess the Artist - Daily Art Game" />
+    <meta name="description" content="Test your art knowledge! Daily challenges with famous paintings. Can you guess the artist?" />
+    
+    <!-- Favicons -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/icon-16.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/icon-32.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
+    
+    <!-- PWA Manifest -->
     <link rel="manifest" href="/manifest.json" />
-<meta name="theme-color" content="#111111" />
-
-    <title>art-guessing-game</title>
+    
+    <!-- Theme Color -->
+    <meta name="theme-color" content="#111111" />
+    <meta name="msapplication-TileColor" content="#111111" />
+    <meta name="msapplication-tap-highlight" content="no" />
+    
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="/icon-192.png" />
+    <link rel="apple-touch-icon" sizes="512x512" href="/icon-512.png" />
+    
+    <!-- Apple Mobile Web App -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Guess Artist" />
+    
+    <!-- Disable automatic detection -->
+    <meta name="format-detection" content="telephone=no" />
+    
+    <!-- Prevent zoom on input focus (iOS) -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://yoursite.com/" />
+    <meta property="og:title" content="Guess the Artist - Daily Art Game" />
+    <meta property="og:description" content="Test your art knowledge! Daily challenges with famous paintings." />
+    <meta property="og:image" content="https://yoursite.com/icon-512.png" />
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://yoursite.com/" />
+    <meta property="twitter:title" content="Guess the Artist - Daily Art Game" />
+    <meta property="twitter:description" content="Test your art knowledge! Daily challenges with famous paintings." />
+    <meta property="twitter:image" content="https://yoursite.com/icon-512.png" />
+    
+    <!-- Preload critical resources -->
+    <link rel="preload" href="/sounds/click.wav" as="fetch" crossorigin />
+    <link rel="preload" href="/sounds/correct.wav" as="fetch" crossorigin />
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+    
+    <!-- Install prompt for iOS -->
+    <script>
+      // Check if already installed
+      if (window.matchMedia('(display-mode: standalone)').matches) {
+        console.log('Running as PWA');
+      }
+    </script>
   </body>
 </html>
