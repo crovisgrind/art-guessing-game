@@ -175,10 +175,10 @@ export default function App(){
     setKeyboard(kb)
 
     if(guessNorm===normTarget){
-      if(navigator.vibrate) navigator.vibrate([40,40,80])
+      if(navigator.vibrate) navigator.vibrate(200)
 
-      setStatus("won")
       setRevealed(pool)
+      setStatus("won")
 
       const saved = JSON.parse(localStorage.getItem(storageKey))
       localStorage.setItem(storageKey, JSON.stringify({
@@ -237,11 +237,38 @@ export default function App(){
   })
 
   return(
-    <div style={{minHeight:"100dvh",background:"linear-gradient(135deg,#0f0f0f,#2a0f1f)",color:"#fff",padding:12}}>
-      <div style={{maxWidth:420,margin:"0 auto",background:"#111",borderRadius:24,padding:16}}>
+    <div style={{
+      minHeight:"100dvh",
+      background:"linear-gradient(135deg,#0f0f0f,#2a0f1f)",
+      color:"#fff",
+      padding:12,
+      boxSizing:"border-box",
+      overflowX:"hidden"
+    }}>
+      <div style={{
+        width:"100%",
+        maxWidth:420,
+        margin:"0 auto",
+        background:"#111",
+        borderRadius:24,
+        padding:16,
+        boxSizing:"border-box"
+      }}>
         <h1 style={{textAlign:"center"}}>🎨 Art Guess</h1>
 
-        <canvas ref={canvasRef} style={{width:"100%",maxWidth:360,aspectRatio:"1/1",borderRadius:16,border:"2px solid #333",margin:"12px auto",display:"block"}} />
+        <canvas
+          ref={canvasRef}
+          style={{
+            width:"100%",
+            maxWidth:360,
+            aspectRatio:"1 / 1",
+            borderRadius:16,
+            border:"2px solid #333",
+            margin:"12px auto",
+            display:"block",
+            boxSizing:"border-box"
+          }}
+        />
 
         <div style={{display:"flex",flexDirection:"column",gap:6}}>
           {rows.map((row,i)=>(
