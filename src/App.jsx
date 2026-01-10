@@ -377,58 +377,32 @@ export default function App(){
 
         {/* Score Panel */}
         <div style={{
-          background:"#1a1a1a",
+          background:"linear-gradient(135deg,#1a1a1a,#252525)",
           borderRadius:12,
-          padding:"12px",
+          padding:"16px",
           marginBottom:12,
-          border:"2px solid #333"
+          border:"2px solid #333",
+          textAlign:"center"
         }}>
-          <div style={{
-            display:"flex",
-            justifyContent:"space-between",
-            alignItems:"center",
-            marginBottom:8
-          }}>
-            <div>
-              <div style={{fontSize:"clamp(11px,2.5vw,13px)",color:"#999"}}>Daily Score</div>
-              <div style={{fontSize:"clamp(20px,5vw,28px)",fontWeight:900,color:"#22c55e"}}>{totalScore}</div>
-            </div>
-            <div style={{textAlign:"right"}}>
-              <div style={{fontSize:"clamp(11px,2.5vw,13px)",color:"#999"}}>Max Today</div>
-              <div style={{fontSize:"clamp(16px,4vw,20px)",fontWeight:700,color:"#666"}}>450</div>
-            </div>
-          </div>
+          <div style={{fontSize:"clamp(12px,3vw,14px)",color:"#999",marginBottom:4}}>Daily Score</div>
+          <div style={{fontSize:"clamp(32px,8vw,42px)",fontWeight:900,color:"#22c55e",letterSpacing:"-1px"}}>{totalScore}</div>
+          <div style={{fontSize:"clamp(11px,2.5vw,13px)",color:"#666"}}>of 450 points</div>
           
-          {/* Game Tabs */}
-          <div style={{display:"flex",gap:6}}>
+          {/* Progress dots */}
+          <div style={{display:"flex",gap:8,justifyContent:"center",marginTop:12}}>
             {GAME_CONFIGS.map((cfg,idx)=>(
-              <button
+              <div
                 key={idx}
-                onClick={()=>setCurrentGameIdx(idx)}
-                disabled={status==="playing"}
+                onClick={()=>{if(status!=="playing")setCurrentGameIdx(idx)}}
                 style={{
-                  flex:1,
-                  padding:"12px 8px",
-                  borderRadius:8,
-                  border:"none",
-                  background: currentGameIdx===idx ? "#22c55e" : gameScores[idx]!==null ? "#333" : "#222",
-                  color: currentGameIdx===idx ? "#000" : "#fff",
-                  fontWeight:900,
-                  fontSize:"clamp(12px,3vw,14px)",
-                  cursor: status==="playing" ? "not-allowed" : "pointer",
-                  opacity: status==="playing" && currentGameIdx!==idx ? 0.5 : 1,
+                  width:currentGameIdx===idx?32:10,
+                  height:10,
+                  borderRadius:5,
+                  background: gameScores[idx]!==null ? "#22c55e" : currentGameIdx===idx ? "#666" : "#333",
                   transition:"all 0.3s ease",
-                  touchAction:"manipulation",
-                  WebkitTapHighlightColor:"transparent"
+                  cursor: status==="playing" ? "default" : "pointer"
                 }}
-              >
-                Nível {idx + 1}
-                {gameScores[idx]!==null && (
-                  <div style={{fontSize:"clamp(10px,2.2vw,12px)",marginTop:2,opacity:0.8}}>
-                    ✓
-                  </div>
-                )}
-              </button>
+              />
             ))}
           </div>
         </div>
@@ -516,7 +490,7 @@ export default function App(){
         </div>
 
         {status!=="playing"&&(
-          <div style={{textAlign:"center",marginTop:16}}>
+          <div style={{textAlign:"center",marginTop:16,paddingBottom:16}}>
             <h2 style={{
               fontSize:"clamp(18px,4.5vw,24px)",
               margin:"8px 0"
@@ -535,7 +509,7 @@ export default function App(){
                 Solved in {rows.length} {rows.length===1?"guess":"guesses"}
               </div>
             )}
-            <div style={{display:"flex",gap:8,justifyContent:"center",marginTop:12}}>
+            <div style={{display:"flex",gap:8,justifyContent:"center",flexWrap:"wrap",marginTop:12}}>
               <button onClick={share} style={{
                 padding:"14px 28px",
                 background:"#fff",
