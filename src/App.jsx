@@ -31,40 +31,44 @@ export default function App(){
   const normTarget = normalize(target)
   const storageKey = "art-guess-"+painting.id
 
-  // build pattern with spaces/hyphens
   const pattern = useMemo(() =>
     target.split("").map(c => (isLetter(normalize(c)) ? null : c)), [target]
   )
 
   const slots = pattern.filter(c => c===null).length
 
-  // grid state
-  const [rows,setRows] = useState([]) // [{letters:Array, result:Array}]
+  const [rows,setRows] = useState([])
   const [current,setCurrent] = useState(Array(pattern.length).fill(""))
   const [keyboard,setKeyboard] = useState({})
   const [status,setStatus] = useState("playing")
 
-  // canvas
   const [pool,setPool] = useState([])
   const [revealed,setRevealed] = useState([])
   const canvasRef = useRef()
 
-  // init
+  // ---------- init with anti-cheat ----------
   useEffect(()=>{
-    const tiles=[...Array(TILES).keys()].sort(()=>Math.random()-0.5)
-    setPool(tiles)
-    setRevealed([tiles[0]])
+    let data = localStorage.getItem(storageKey)
+    if(data){
+      data = JSON.parse(data)
+    } else {
+      data = {
+        tiles: [...Array(TILES).keys()].sort(()=>Math.random()-0.5),
+        revealedCount: 1,
+        status: "playing"
+      }
+      localStorage.setItem(storageKey, JSON.stringify(data))
+    }
 
-    // prefill spaces/hyphens
+    setPool(data.tiles)
+    setRevealed(data.tiles.slice(0,data.revealedCount))
+    setStatus(data.status)
+
     const base = pattern.map(c => (c!==null ? c : ""))
     setCurrent(base)
-
-    const saved = localStorage.getItem(storageKey)
-    if(saved==="won") setStatus("won")
-    if(saved==="lost") setStatus("lost")
   },[])
 
-  // canvas draw
+  // ---------- canvas ----------
   useEffect(()=>{
     const img=new Image()
     img.src=painting.image
@@ -88,19 +92,32 @@ export default function App(){
     }
   },[revealed,painting])
 
-  const revealOne = () =>
-    setRevealed(r => (r.length < pool.length ? [...r, pool[r.length]] : r))
+  const revealOne = ()=>{
+    setRevealed(r=>{
+      if(r.length>=pool.length) return r
+      const newCount = r.length + 1
+      const newTiles = pool.slice(0,newCount)
+
+      const saved = JSON.parse(localStorage.getItem(storageKey))
+      localStorage.setItem(storageKey, JSON.stringify({
+        ...saved,
+        revealedCount:newCount
+      }))
+
+      return newTiles
+    })
+  }
 
   // ---------- typing ----------
-  const nextEmptyIndex = (arr,from=0)=>{
-    for(let i=from;i<arr.length;i++){
+  const nextEmptyIndex = arr=>{
+    for(let i=0;i<arr.length;i++){
       if(pattern[i]===null && !arr[i]) return i
     }
     return -1
   }
 
-  const prevFilledIndex = (arr,from)=>{
-    for(let i=from;i>=0;i--){
+  const prevFilledIndex = arr=>{
+    for(let i=arr.length-1;i>=0;i--){
       if(pattern[i]===null && arr[i]) return i
     }
     return -1
@@ -108,7 +125,7 @@ export default function App(){
 
   const typeLetter = l=>{
     if(status!=="playing") return
-    const i = nextEmptyIndex(current,0)
+    const i = nextEmptyIndex(current)
     if(i!==-1){
       const n=[...current]; n[i]=l; setCurrent(n)
     }
@@ -116,7 +133,7 @@ export default function App(){
 
   const backspace = ()=>{
     if(status!=="playing") return
-    const i = prevFilledIndex(current,current.length-1)
+    const i = prevFilledIndex(current)
     if(i!==-1){
       const n=[...current]; n[i]=""; setCurrent(n)
     }
@@ -146,24 +163,29 @@ export default function App(){
       }
     })
 
-    // map back to pattern positions
     let k=0
     const fullRes = pattern.map(p => p!==null ? "skip" : res[k++])
 
     setRows(r=>[...r,{letters:[...current], result:fullRes}])
 
-    // update keyboard
     const kb={...keyboard}
     guessArr.forEach((c,i)=>{
-      if(kb[c]==="correct") return
-      kb[c]=res[i]
+      if(kb[c]!=="correct") kb[c]=res[i]
     })
     setKeyboard(kb)
 
     if(guessNorm===normTarget){
+      if(navigator.vibrate) navigator.vibrate([40,40,80])
+
       setStatus("won")
       setRevealed(pool)
-      localStorage.setItem(storageKey,"won")
+
+      const saved = JSON.parse(localStorage.getItem(storageKey))
+      localStorage.setItem(storageKey, JSON.stringify({
+        ...saved,
+        status:"won",
+        revealedCount: pool.length
+      }))
       return
     }
 
@@ -172,7 +194,13 @@ export default function App(){
     if(rows.length+1>=MAX_GUESSES){
       setStatus("lost")
       setRevealed(pool)
-      localStorage.setItem(storageKey,"lost")
+
+      const saved = JSON.parse(localStorage.getItem(storageKey))
+      localStorage.setItem(storageKey, JSON.stringify({
+        ...saved,
+        status:"lost",
+        revealedCount: pool.length
+      }))
     }
 
     const base = pattern.map(c => (c!==null ? c : ""))
@@ -185,18 +213,15 @@ export default function App(){
     else if(isLetter(k)) typeLetter(k)
   }
 
-  // ---------- share ----------
   const share = ()=>{
     const rowsEmojis = rows.map(r =>
       r.result.filter(x=>x!=="skip").map(x=>x==="correct"?"🟩":x==="present"?"🟨":"⬛").join("")
     ).join("\n")
-    const text = `🎨 ART GUESS\n\n${rowsEmojis}\n\n${location.href}`
-    navigator.clipboard.writeText(text)
+    navigator.clipboard.writeText(`🎨 ART GUESS\n\n${rowsEmojis}\n\n${location.href}`)
     alert("Copied!")
   }
 
-  // ---------- styles ----------
-  const cellStyle = (r)=>({
+  const cellStyle = r=>({
     width:"clamp(32px,9vw,36px)",
     height:"clamp(38px,11vw,44px)",
     display:"flex",
@@ -212,70 +237,38 @@ export default function App(){
   })
 
   return(
-    <div style={{
-      minHeight:"100dvh",
-      background:"linear-gradient(135deg,#0f0f0f,#2a0f1f)",
-      color:"#fff",
-      padding:"env(safe-area-inset-top) 12px 12px"
-    }}>
-      <div style={{
-        width:"100%",
-        maxWidth:420,
-        margin:"0 auto",
-        background:"#111",
-        borderRadius:24,
-        padding:16,
-        boxSizing:"border-box"
-      }}>
-        <h1 style={{textAlign:"center",fontSize:32,fontWeight:900}}>🎨 Art Guess</h1>
+    <div style={{minHeight:"100dvh",background:"linear-gradient(135deg,#0f0f0f,#2a0f1f)",color:"#fff",padding:12}}>
+      <div style={{maxWidth:420,margin:"0 auto",background:"#111",borderRadius:24,padding:16}}>
+        <h1 style={{textAlign:"center"}}>🎨 Art Guess</h1>
 
-        <canvas
-          ref={canvasRef}
-          style={{
-            width:"100%",
-            maxWidth:360,
-            aspectRatio:"1/1",
-            borderRadius:16,
-            border:"2px solid #333",
-            margin:"12px auto",
-            display:"block"
-          }}
-        />
+        <canvas ref={canvasRef} style={{width:"100%",maxWidth:360,aspectRatio:"1/1",borderRadius:16,border:"2px solid #333",margin:"12px auto",display:"block"}} />
 
-        {/* GRID */}
-        <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:12}}>
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>
           {rows.map((row,i)=>(
             <div key={i} style={{display:"flex",gap:4,justifyContent:"center"}}>
-              {row.letters.map((c,j)=>(
-                <div key={j} style={cellStyle(row.result[j])}>{c}</div>
-              ))}
+              {row.letters.map((c,j)=>(<div key={j} style={cellStyle(row.result[j])}>{c}</div>))}
             </div>
           ))}
-
-          {status==="playing" && rows.length < MAX_GUESSES && (
+          {status==="playing" && rows.length<MAX_GUESSES && (
             <div style={{display:"flex",gap:4,justifyContent:"center"}}>
-              {current.map((c,i)=>(
-                <div key={i} style={cellStyle("")}>{c}</div>
-              ))}
+              {current.map((c,i)=>(<div key={i} style={cellStyle("")}>{c}</div>))}
             </div>
           )}
         </div>
 
-        {/* KEYBOARD */}
         {keyboardLayout.map((row,i)=>(
-          <div key={i} style={{display:"flex",gap:6,marginBottom:6}}>
+          <div key={i} style={{display:"flex",gap:6,marginTop:8}}>
             {row.map(k=>{
               const s=keyboard[k]
               return(
-                <button key={k} onClick={()=>handleKey(k)}
-                  style={{
-                    flex:k==="ENTER"||k==="⌫"?2:1,
-                    padding:"clamp(10px,2.5vw,14px)",
-                    borderRadius:8,
-                    fontWeight:900,
-                    fontSize:"clamp(12px,3vw,16px)",
-                    background:s==="correct"?"#22c55e":s==="present"?"#eab308":s==="absent"?"#333":"#666"
-                  }}>{k}</button>
+                <button key={k} onClick={()=>handleKey(k)} style={{
+                  flex:k==="ENTER"||k==="⌫"?2:1,
+                  padding:12,
+                  borderRadius:8,
+                  fontWeight:900,
+                  background:s==="correct"?"#22c55e":s==="present"?"#eab308":s==="absent"?"#333":"#666",
+                  color:"#fff"
+                }}>{k}</button>
               )
             })}
           </div>
