@@ -80,64 +80,70 @@ export default function App(){
 
   // ---------- init with anti-cheat ----------
   useEffect(()=>{
-    // Reset states first
+    // Reset states first - CRITICAL for clean transitions
     setRows([])
     setKeyboard({})
     setRevealed([])
     setPool([])
+    setStatus("playing")
     
-    let data = localStorage.getItem(storageKey)
-    if(data){
-      data = JSON.parse(data)
-    } else {
-      data = {
-        tiles: [...Array(config.tiles).keys()].sort(()=>Math.random()-0.5),
-        revealedCount: 1,
-        status: "playing",
-        score: null,
-        rows: []
+    // Small delay to ensure state is cleared
+    const timer = setTimeout(() => {
+      let data = localStorage.getItem(storageKey)
+      if(data){
+        data = JSON.parse(data)
+      } else {
+        data = {
+          tiles: [...Array(config.tiles).keys()].sort(()=>Math.random()-0.5),
+          revealedCount: 1,
+          status: "playing",
+          score: null,
+          rows: []
+        }
+        localStorage.setItem(storageKey, JSON.stringify(data))
       }
-      localStorage.setItem(storageKey, JSON.stringify(data))
-    }
 
-    setPool(data.tiles)
-    setRevealed(data.tiles.slice(0,data.revealedCount))
-    setStatus(data.status)
-    setRows(data.rows || [])
+      setPool(data.tiles)
+      setRevealed(data.tiles.slice(0, data.revealedCount))
+      setStatus(data.status)
+      setRows(data.rows || [])
 
-    const base = pattern.map(c => (c!==null ? c : ""))
-    setCurrent(base)
+      const base = pattern.map(c => (c!==null ? c : ""))
+      setCurrent(base)
+      
+      // Rebuild keyboard state from saved rows
+      if(data.rows && data.rows.length > 0){
+        const kb = {}
+        data.rows.forEach(row => {
+          const letters = row.letters.filter((c,i) => pattern[i]===null).join("")
+          const guessNorm = normalize(letters)
+          const guessArr = guessNorm.split("")
+          
+          const targetArr = normTarget.split("")
+          const res = Array(slots).fill("absent")
+          const counts={}
+
+          targetArr.forEach((c,i)=>{
+            if(guessArr[i]===c) res[i]="correct"
+            else counts[c]=(counts[c]||0)+1
+          })
+
+          guessArr.forEach((c,i)=>{
+            if(res[i]==="correct") return
+            if(counts[c]){
+              res[i]="present"; counts[c]--
+            }
+          })
+
+          guessArr.forEach((c,i)=>{
+            if(kb[c]!=="correct") kb[c]=res[i]
+          })
+        })
+        setKeyboard(kb)
+      }
+    }, 50)
     
-    // Rebuild keyboard state from saved rows
-    if(data.rows && data.rows.length > 0){
-      const kb = {}
-      data.rows.forEach(row => {
-        const letters = row.letters.filter((c,i) => pattern[i]===null).join("")
-        const guessNorm = normalize(letters)
-        const guessArr = guessNorm.split("")
-        
-        const targetArr = normTarget.split("")
-        const res = Array(slots).fill("absent")
-        const counts={}
-
-        targetArr.forEach((c,i)=>{
-          if(guessArr[i]===c) res[i]="correct"
-          else counts[c]=(counts[c]||0)+1
-        })
-
-        guessArr.forEach((c,i)=>{
-          if(res[i]==="correct") return
-          if(counts[c]){
-            res[i]="present"; counts[c]--
-          }
-        })
-
-        guessArr.forEach((c,i)=>{
-          if(kb[c]!=="correct") kb[c]=res[i]
-        })
-      })
-      setKeyboard(kb)
-    }
+    return () => clearTimeout(timer)
   },[currentGameIdx, storageKey, config.tiles, pattern, normTarget, slots])
 
   // ---------- canvas ----------
@@ -153,7 +159,10 @@ export default function App(){
       const ctx=c.getContext("2d")
       const size=360
       c.width=size; c.height=size
-      ctx.clearRect(0,0,size,size)
+      
+      // Clear with black background
+      ctx.fillStyle = "#000"
+      ctx.fillRect(0,0,size,size)
 
       const side=Math.min(img.width,img.height)
       const ox=(img.width-side)/2
@@ -161,12 +170,14 @@ export default function App(){
       const t=side/config.grid
       const d=size/config.grid
 
+      // Only draw revealed tiles
       revealed.forEach(i=>{
+        if(i >= config.tiles) return // Safety check
         const col=i%config.grid,row=Math.floor(i/config.grid)
         ctx.drawImage(img,ox+col*t,oy+row*t,t,t,col*d,row*d,d,d)
       })
     }
-  },[revealed,painting,config.grid,pool.length])
+  },[revealed,painting.image,config.grid,pool.length,config.tiles])
 
   const revealOne = ()=>{
     setRevealed(r=>{
