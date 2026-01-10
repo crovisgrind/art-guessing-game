@@ -309,12 +309,13 @@ export default function App(){
     transition:"background 0.3s ease"
   })
 
-  return(
+      return(
     <div style={{
       minHeight:"100dvh",
       background:"linear-gradient(135deg,#0f0f0f,#2a0f1f)",
       color:"#fff",
-      padding:"8px",
+      padding:0,
+      margin:0,
       boxSizing:"border-box",
       overflowX:"hidden",
       display:"flex",
@@ -325,9 +326,10 @@ export default function App(){
         width:"100%",
         maxWidth:420,
         background:"#111",
-        borderRadius:16,
+        borderRadius:0,
         padding:"12px",
-        boxSizing:"border-box"
+        boxSizing:"border-box",
+        minHeight:"100dvh"
       }}>
         <h1 style={{
           textAlign:"center",
@@ -360,7 +362,7 @@ export default function App(){
           </div>
           
           {/* Game Tabs */}
-          <div style={{display:"flex",gap:4}}>
+          <div style={{display:"flex",gap:6}}>
             {GAME_CONFIGS.map((cfg,idx)=>(
               <button
                 key={idx}
@@ -368,13 +370,13 @@ export default function App(){
                 disabled={status==="playing"}
                 style={{
                   flex:1,
-                  padding:"10px 4px",
+                  padding:"12px 8px",
                   borderRadius:8,
                   border:"none",
                   background: currentGameIdx===idx ? "#22c55e" : gameScores[idx]!==null ? "#333" : "#222",
                   color: currentGameIdx===idx ? "#000" : "#fff",
                   fontWeight:900,
-                  fontSize:"clamp(11px,2.5vw,13px)",
+                  fontSize:"clamp(12px,3vw,14px)",
                   cursor: status==="playing" ? "not-allowed" : "pointer",
                   opacity: status==="playing" && currentGameIdx!==idx ? 0.5 : 1,
                   transition:"all 0.3s ease",
@@ -382,10 +384,12 @@ export default function App(){
                   WebkitTapHighlightColor:"transparent"
                 }}
               >
-                <div>{cfg.grid}×{cfg.grid}</div>
-                <div style={{fontSize:"clamp(9px,2vw,11px)",marginTop:2}}>
-                  {gameScores[idx]!==null ? `${gameScores[idx]}/${cfg.points}` : `${cfg.points} pts`}
-                </div>
+                Nível {idx + 1}
+                {gameScores[idx]!==null && (
+                  <div style={{fontSize:"clamp(10px,2.2vw,12px)",marginTop:2,opacity:0.8}}>
+                    ✓
+                  </div>
+                )}
               </button>
             ))}
           </div>
