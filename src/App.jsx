@@ -20,6 +20,9 @@ const normalize = t =>
 
 const isLetter = c => /^[A-Z]$/.test(c)
 
+const formatPaintingName = id => 
+  id.split("-").map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(" ")
+
 function getDailyPaintings(){
   const start = new Date(2024,0,1)
   const today = new Date()
@@ -77,6 +80,12 @@ export default function App(){
 
   // ---------- init with anti-cheat ----------
   useEffect(()=>{
+    // Reset states first
+    setRows([])
+    setKeyboard({})
+    setRevealed([])
+    setPool([])
+    
     let data = localStorage.getItem(storageKey)
     if(data){
       data = JSON.parse(data)
@@ -98,7 +107,6 @@ export default function App(){
 
     const base = pattern.map(c => (c!==null ? c : ""))
     setCurrent(base)
-    setKeyboard({})
     
     // Rebuild keyboard state from saved rows
     if(data.rows && data.rows.length > 0){
@@ -130,14 +138,18 @@ export default function App(){
       })
       setKeyboard(kb)
     }
-  },[currentGameIdx])
+  },[currentGameIdx, storageKey, config.tiles, pattern, normTarget, slots])
 
   // ---------- canvas ----------
   useEffect(()=>{
+    if(!canvasRef.current || revealed.length === 0 || pool.length === 0) return
+    
     const img=new Image()
     img.src=painting.image
     img.onload=()=>{
       const c=canvasRef.current
+      if(!c) return
+      
       const ctx=c.getContext("2d")
       const size=360
       c.width=size; c.height=size
@@ -154,7 +166,7 @@ export default function App(){
         ctx.drawImage(img,ox+col*t,oy+row*t,t,t,col*d,row*d,d,d)
       })
     }
-  },[revealed,painting,config.grid])
+  },[revealed,painting,config.grid,pool.length])
 
   const revealOne = ()=>{
     setRevealed(r=>{
@@ -374,7 +386,7 @@ export default function App(){
           textAlign:"center",
           fontSize:"clamp(20px,5vw,28px)",
           margin:"8px 0 4px 0"
-        }}>🎨 Art Guess</h1>
+        }}>🎨 Guess the Artist</h1>
 
         {/* Score Panel */}
         <div style={{
@@ -501,12 +513,32 @@ export default function App(){
               }
             </h2>
             {status==="won" && (
+              <>
+                <div style={{
+                  fontSize:"clamp(14px,3.5vw,16px)",
+                  color:"#22c55e",
+                  fontWeight:700,
+                  marginBottom:4
+                }}>
+                  {formatPaintingName(painting.id)}
+                </div>
+                <div style={{
+                  fontSize:"clamp(12px,3vw,14px)",
+                  color:"#999",
+                  marginBottom:8
+                }}>
+                  Solved in {rows.length} {rows.length===1?"guess":"guesses"}
+                </div>
+              </>
+            )}
+            {status==="lost" && (
               <div style={{
-                fontSize:"clamp(12px,3vw,14px)",
-                color:"#999",
+                fontSize:"clamp(14px,3.5vw,16px)",
+                color:"#666",
+                marginTop:4,
                 marginBottom:8
               }}>
-                Solved in {rows.length} {rows.length===1?"guess":"guesses"}
+                {formatPaintingName(painting.id)}
               </div>
             )}
             <div style={{display:"flex",gap:8,justifyContent:"center",flexWrap:"wrap",marginTop:12}}>

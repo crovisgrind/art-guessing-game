@@ -1,13 +1,13 @@
 export const paintings = [
   {
     id: "starry-night",
-    artist: "Vincent van Gogh",
+    artist: "van Gogh",
     image: "/artworks/van-gogh_starry-night.jpg",
     grid: 6
   },
   {
     id: "girl-with-a-pear-earring",
-    artist: "Johannes Vermeer",
+    artist: "Vermeer",
     image: "/artworks/vermeer_girl-with-a-pear-earring.jpg",
     grid: 6
   },
@@ -25,7 +25,7 @@ export const paintings = [
   },
   {
     id: "liberty-leading-the-people",
-    artist: "Eugene Delacroix",
+    artist: "Delacroix",
     image: "/artworks/eugene-delacroix_liberty-leading-the-people.jpg",
     grid: 6
   },
@@ -61,7 +61,7 @@ export const paintings = [
   },
   {
     id: "the-birth-of-venus",
-    artist: "Sandro Botticelli",
+    artist: "Botticelli",
     image: "/artworks/sandro-botticelli_the-birth-of-venus.jpg",
     grid: 6
   },
