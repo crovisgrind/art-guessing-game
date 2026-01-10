@@ -208,32 +208,41 @@ export default function App(){
   }
 
   const handleKey = k=>{
+    if(navigator.vibrate) navigator.vibrate(10)
     if(k==="ENTER") submit()
     else if(k==="⌫") backspace()
     else if(isLetter(k)) typeLetter(k)
   }
 
   const share = ()=>{
+    if(navigator.vibrate) navigator.vibrate([50,30,50])
     const rowsEmojis = rows.map(r =>
       r.result.filter(x=>x!=="skip").map(x=>x==="correct"?"🟩":x==="present"?"🟨":"⬛").join("")
     ).join("\n")
-    navigator.clipboard.writeText(`🎨 ART GUESS\n\n${rowsEmojis}\n\n${location.href}`)
-    alert("Copied!")
+    const text = `🎨 ART GUESS\n\n${rowsEmojis}\n\n${location.href}`
+    
+    if(navigator.share){
+      navigator.share({text}).catch(()=>{})
+    } else {
+      navigator.clipboard.writeText(text)
+      alert("Copied!")
+    }
   }
 
   const cellStyle = r=>({
-    width:"clamp(32px,9vw,36px)",
-    height:"clamp(38px,11vw,44px)",
+    width:"clamp(28px,8vw,36px)",
+    height:"clamp(36px,10vw,44px)",
     display:"flex",
     alignItems:"center",
     justifyContent:"center",
     fontWeight:900,
-    fontSize:"clamp(16px,4.5vw,20px)",
+    fontSize:"clamp(14px,4vw,20px)",
     borderRadius:6,
     background:
       r==="correct"?"#22c55e":
       r==="present"?"#eab308":
-      r==="absent"?"#333":"#222"
+      r==="absent"?"#333":"#222",
+    transition:"background 0.3s ease"
   })
 
   return(
@@ -241,20 +250,26 @@ export default function App(){
       minHeight:"100dvh",
       background:"linear-gradient(135deg,#0f0f0f,#2a0f1f)",
       color:"#fff",
-      padding:12,
+      padding:"8px",
       boxSizing:"border-box",
-      overflowX:"hidden"
+      overflowX:"hidden",
+      display:"flex",
+      alignItems:"center",
+      justifyContent:"center"
     }}>
       <div style={{
         width:"100%",
         maxWidth:420,
-        margin:"0 auto",
         background:"#111",
-        borderRadius:24,
-        padding:16,
+        borderRadius:16,
+        padding:"12px",
         boxSizing:"border-box"
       }}>
-        <h1 style={{textAlign:"center"}}>🎨 Art Guess</h1>
+        <h1 style={{
+          textAlign:"center",
+          fontSize:"clamp(20px,5vw,28px)",
+          margin:"8px 0 12px 0"
+        }}>🎨 Art Guess</h1>
 
         <canvas
           ref={canvasRef}
@@ -262,49 +277,83 @@ export default function App(){
             width:"100%",
             maxWidth:360,
             aspectRatio:"1 / 1",
-            borderRadius:16,
+            borderRadius:12,
             border:"2px solid #333",
-            margin:"12px auto",
+            margin:"0 auto 12px auto",
             display:"block",
-            boxSizing:"border-box"
+            boxSizing:"border-box",
+            touchAction:"none"
           }}
         />
 
-        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+        <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:8}}>
           {rows.map((row,i)=>(
-            <div key={i} style={{display:"flex",gap:4,justifyContent:"center"}}>
+            <div key={i} style={{display:"flex",gap:3,justifyContent:"center",flexWrap:"wrap"}}>
               {row.letters.map((c,j)=>(<div key={j} style={cellStyle(row.result[j])}>{c}</div>))}
             </div>
           ))}
           {status==="playing" && rows.length<MAX_GUESSES && (
-            <div style={{display:"flex",gap:4,justifyContent:"center"}}>
+            <div style={{display:"flex",gap:3,justifyContent:"center",flexWrap:"wrap"}}>
               {current.map((c,i)=>(<div key={i} style={cellStyle("")}>{c}</div>))}
             </div>
           )}
         </div>
 
-        {keyboardLayout.map((row,i)=>(
-          <div key={i} style={{display:"flex",gap:6,marginTop:8}}>
-            {row.map(k=>{
-              const s=keyboard[k]
-              return(
-                <button key={k} onClick={()=>handleKey(k)} style={{
-                  flex:k==="ENTER"||k==="⌫"?2:1,
-                  padding:12,
-                  borderRadius:8,
-                  fontWeight:900,
-                  background:s==="correct"?"#22c55e":s==="present"?"#eab308":s==="absent"?"#333":"#666",
-                  color:"#fff"
-                }}>{k}</button>
-              )
-            })}
-          </div>
-        ))}
+        <div style={{maxWidth:360,margin:"0 auto"}}>
+          {keyboardLayout.map((row,i)=>(
+            <div key={i} style={{
+              display:"flex",
+              gap:4,
+              marginTop:6,
+              justifyContent:"center"
+            }}>
+              {row.map(k=>{
+                const s=keyboard[k]
+                return(
+                  <button key={k} onClick={()=>handleKey(k)} style={{
+                    flex:k==="ENTER"||k==="⌫"?1.5:1,
+                    minWidth:k==="ENTER"||k==="⌫"?"50px":"28px",
+                    padding:"12px 4px",
+                    borderRadius:6,
+                    fontWeight:900,
+                    fontSize:"clamp(11px,2.8vw,14px)",
+                    background:s==="correct"?"#22c55e":s==="present"?"#eab308":s==="absent"?"#333":"#666",
+                    color:"#fff",
+                    border:"none",
+                    cursor:"pointer",
+                    touchAction:"manipulation",
+                    WebkitTapHighlightColor:"transparent",
+                    transition:"opacity 0.15s ease",
+                    opacity:1
+                  }}
+                  onTouchStart={e=>e.currentTarget.style.opacity=0.7}
+                  onTouchEnd={e=>e.currentTarget.style.opacity=1}
+                  >{k}</button>
+                )
+              })}
+            </div>
+          ))}
+        </div>
 
         {status!=="playing"&&(
-          <div style={{textAlign:"center",marginTop:12}}>
-            <h2>{status==="won"?"🎉 Correct!":"❌ "+target}</h2>
-            <button onClick={share} style={{marginTop:10,padding:12,background:"#fff",color:"#000",borderRadius:10,fontWeight:900}}>Share</button>
+          <div style={{textAlign:"center",marginTop:16}}>
+            <h2 style={{
+              fontSize:"clamp(18px,4.5vw,24px)",
+              margin:"8px 0"
+            }}>{status==="won"?"🎉 Correct!":"❌ "+target}</h2>
+            <button onClick={share} style={{
+              marginTop:12,
+              padding:"14px 28px",
+              background:"#fff",
+              color:"#000",
+              borderRadius:10,
+              fontWeight:900,
+              fontSize:"clamp(14px,3.5vw,16px)",
+              border:"none",
+              cursor:"pointer",
+              touchAction:"manipulation",
+              WebkitTapHighlightColor:"transparent"
+            }}>Share</button>
           </div>
         )}
       </div>
