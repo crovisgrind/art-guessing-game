@@ -1,6 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { paintings } from "./paintings"
 
+// ---------- sounds ----------
+const sounds = {
+  click: new Audio("/sounds/click.wav"),
+  correct: new Audio("/sounds/correct.wav"),
+  present: new Audio("/sounds/present.wav"),
+  wrong: new Audio("/sounds/wrong.wav"),
+  reveal: new Audio("/sounds/reveal.wav"),
+  win: new Audio("/sounds/win.wav")
+}
+
+Object.values(sounds).forEach(s => {
+  s.preload = "auto"
+  s.volume = 0.4
+})
+
+
 const MAX_GUESSES = 6
 const GAME_CONFIGS = [
   { grid: 6, tiles: 36, points: 100 },
@@ -91,6 +107,14 @@ export default function App(){
   const canvasRef = useRef()
   const [isLoading, setIsLoading] = useState(true)
 
+  const playSound = name => {
+  const s = sounds[name]
+  if (!s) return
+  s.currentTime = 0
+  s.play().catch(()=>{})
+}
+
+
   // ---------- load scores ----------
   useEffect(()=>{
     const savedTotalScore = localStorage.getItem(totalScoreKey)
@@ -100,6 +124,17 @@ export default function App(){
       setGameScores(data.games || [null, null, null])
     }
   },[])
+
+  useEffect(() => {
+  const unlock = () => {
+    Object.values(sounds).forEach(s =>
+      s.play().then(()=>s.pause()).catch(()=>{})
+    )
+    window.removeEventListener("touchstart", unlock)
+  }
+  window.addEventListener("touchstart", unlock, { once:true })
+}, [])
+
 
   // ---------- init with anti-cheat ----------
   useEffect(()=>{
@@ -253,6 +288,7 @@ export default function App(){
       }))
       
       setRevealed(newTiles)
+      playSound("reveal")
     }
   }
 
@@ -305,10 +341,10 @@ export default function App(){
     })
 
     guessArr.forEach((c,i)=>{
-      if(res[i]==="correct") return
-      if(counts[c]){
-        res[i]="present"; counts[c]--
-      }
+      if(res[i] === "correct") playSound("correct")
+else if(res[i] === "present") playSound("present")
+else playSound("wrong")
+
     })
 
     let k=0
@@ -325,6 +361,7 @@ export default function App(){
 
     if(guessNorm===normTarget){
       if(navigator.vibrate) navigator.vibrate(200)
+        playSound("win")
 
       const finalPool = [...pool]
       setRevealed(finalPool)
@@ -393,6 +430,8 @@ export default function App(){
 
   const handleKey = k=>{
     if(navigator.vibrate) navigator.vibrate(10)
+playSound("click")
+
     if(k==="ENTER") submit()
     else if(k==="⌫") backspace()
     else if(isLetter(k)) typeLetter(k)
