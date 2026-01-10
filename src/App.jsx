@@ -85,7 +85,8 @@ export default function App(){
         tiles: [...Array(config.tiles).keys()].sort(()=>Math.random()-0.5),
         revealedCount: 1,
         status: "playing",
-        score: null
+        score: null,
+        rows: []
       }
       localStorage.setItem(storageKey, JSON.stringify(data))
     }
@@ -93,11 +94,42 @@ export default function App(){
     setPool(data.tiles)
     setRevealed(data.tiles.slice(0,data.revealedCount))
     setStatus(data.status)
+    setRows(data.rows || [])
 
     const base = pattern.map(c => (c!==null ? c : ""))
     setCurrent(base)
-    setRows([])
     setKeyboard({})
+    
+    // Rebuild keyboard state from saved rows
+    if(data.rows && data.rows.length > 0){
+      const kb = {}
+      data.rows.forEach(row => {
+        const letters = row.letters.filter((c,i) => pattern[i]===null).join("")
+        const guessNorm = normalize(letters)
+        const guessArr = guessNorm.split("")
+        
+        const targetArr = normTarget.split("")
+        const res = Array(slots).fill("absent")
+        const counts={}
+
+        targetArr.forEach((c,i)=>{
+          if(guessArr[i]===c) res[i]="correct"
+          else counts[c]=(counts[c]||0)+1
+        })
+
+        guessArr.forEach((c,i)=>{
+          if(res[i]==="correct") return
+          if(counts[c]){
+            res[i]="present"; counts[c]--
+          }
+        })
+
+        guessArr.forEach((c,i)=>{
+          if(kb[c]!=="correct") kb[c]=res[i]
+        })
+      })
+      setKeyboard(kb)
+    }
   },[currentGameIdx])
 
   // ---------- canvas ----------
@@ -133,7 +165,8 @@ export default function App(){
       const saved = JSON.parse(localStorage.getItem(storageKey))
       localStorage.setItem(storageKey, JSON.stringify({
         ...saved,
-        revealedCount:newCount
+        revealedCount:newCount,
+        rows: rows
       }))
 
       return newTiles
@@ -220,7 +253,8 @@ export default function App(){
         ...saved,
         status:"won",
         revealedCount: pool.length,
-        score
+        score,
+        rows: newRows
       }))
 
       // Update total score
@@ -251,7 +285,8 @@ export default function App(){
         ...saved,
         status:"lost",
         revealedCount: pool.length,
-        score: 0
+        score: 0,
+        rows: newRows
       }))
 
       // Update with 0 score
@@ -312,24 +347,27 @@ export default function App(){
       return(
     <div style={{
       minHeight:"100dvh",
+      width:"100vw",
       background:"linear-gradient(135deg,#0f0f0f,#2a0f1f)",
       color:"#fff",
       padding:0,
       margin:0,
       boxSizing:"border-box",
-      overflowX:"hidden",
-      display:"flex",
-      alignItems:"center",
-      justifyContent:"center"
+      overflow:"hidden",
+      position:"fixed",
+      top:0,
+      left:0
     }}>
       <div style={{
         width:"100%",
         maxWidth:420,
+        margin:"0 auto",
         background:"#111",
-        borderRadius:0,
         padding:"12px",
         boxSizing:"border-box",
-        minHeight:"100dvh"
+        minHeight:"100dvh",
+        overflowY:"auto",
+        overflowX:"hidden"
       }}>
         <h1 style={{
           textAlign:"center",
