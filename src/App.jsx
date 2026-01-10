@@ -28,10 +28,32 @@ function getDailyPaintings(){
   const today = new Date()
   const diff = Math.floor((today - start) / (1000*60*60*24))
   
-  return GAME_CONFIGS.map((_, idx) => {
-    const paintingIdx = (diff * 3 + idx) % paintings.length
-    return paintings[paintingIdx]
+  // Create deterministic rotation ensuring no repeats across consecutive days
+  const totalPaintings = paintings.length
+  const paintingsPerDay = 3
+  
+  // Calculate which "rotation" we're in
+  const rotationSize = Math.floor(totalPaintings / paintingsPerDay) * paintingsPerDay
+  const currentRotation = Math.floor((diff * paintingsPerDay) / rotationSize)
+  
+  // Shuffle paintings deterministically based on rotation
+  const shuffled = [...paintings].sort((a, b) => {
+    const indexA = paintings.indexOf(a)
+    const indexB = paintings.indexOf(b)
+    const hashA = ((indexA * 2654435761) ^ (currentRotation * 2246822519)) >>> 0
+    const hashB = ((indexB * 2654435761) ^ (currentRotation * 2246822519)) >>> 0
+    return hashA - hashB
   })
+  
+  // Get 3 consecutive paintings from the shuffled array
+  const startIdx = (diff * paintingsPerDay) % shuffled.length
+  const selected = []
+  
+  for(let i = 0; i < paintingsPerDay; i++){
+    selected.push(shuffled[(startIdx + i) % shuffled.length])
+  }
+  
+  return selected
 }
 
 function calculateScore(basePoints, guessesUsed){
