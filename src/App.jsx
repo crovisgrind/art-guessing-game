@@ -4,9 +4,6 @@ import { paintings } from "./paintings"
 // ---------- sounds ----------
 const sounds = {
   click: new Audio("/sounds/click.wav"),
-  //correct: new Audio("/sounds/correct.wav"),
-  //present: new Audio("/sounds/present.wav"),
-  //wrong: new Audio("/sounds/wrong.wav"),
   reveal: new Audio("/sounds/reveal.wav"),
   win: new Audio("/sounds/correct.wav")
 }
@@ -15,7 +12,6 @@ Object.values(sounds).forEach(s => {
   s.preload = "auto"
   s.volume = 0.4
 })
-
 
 const MAX_GUESSES = 6
 const GAME_CONFIGS = [
@@ -44,15 +40,12 @@ function getDailyPaintings(){
   const today = new Date()
   const diff = Math.floor((today - start) / (1000*60*60*24))
   
-  // Create deterministic rotation ensuring no repeats across consecutive days
   const totalPaintings = paintings.length
   const paintingsPerDay = 3
   
-  // Calculate which "rotation" we're in
   const rotationSize = Math.floor(totalPaintings / paintingsPerDay) * paintingsPerDay
   const currentRotation = Math.floor((diff * paintingsPerDay) / rotationSize)
   
-  // Shuffle paintings deterministically based on rotation
   const shuffled = [...paintings].sort((a, b) => {
     const indexA = paintings.indexOf(a)
     const indexB = paintings.indexOf(b)
@@ -61,7 +54,6 @@ function getDailyPaintings(){
     return hashA - hashB
   })
   
-  // Get 3 consecutive paintings from the shuffled array
   const startIdx = (diff * paintingsPerDay) % shuffled.length
   const selected = []
   
@@ -77,12 +69,202 @@ function calculateScore(basePoints, guessesUsed){
   return Math.max(basePoints - penalty, 10)
 }
 
+// ---------- Modal Component ----------
+function ResultModal({ status, painting, rows, gameScores, currentGameIdx, totalScore, onShare, onNextGame, onClose }) {
+  const isLastLevel = currentGameIdx === 2;
+  
+  if (!status || status === "playing") return null;
+  
+  return (
+    <div style={{
+      position: "fixed",
+      top: 0,
+      left: 0,
+      width: "100%",
+      height: "100%",
+      backgroundColor: "rgba(0, 0, 0, 0.85)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 1000,
+      padding: 20,
+      boxSizing: "border-box"
+    }}>
+      <div style={{
+        background: "linear-gradient(135deg, #1a1a1a, #252525)",
+        borderRadius: 20,
+        padding: "24px",
+        maxWidth: 400,
+        width: "100%",
+        border: "2px solid #333",
+        textAlign: "center",
+        position: "relative"
+      }}>
+        {/* Close button */}
+        <button 
+          onClick={onClose}
+          style={{
+            position: "absolute",
+            top: 12,
+            right: 12,
+            background: "none",
+            border: "none",
+            color: "#999",
+            fontSize: 24,
+            cursor: "pointer",
+            width: 36,
+            height: 36,
+            borderRadius: "50%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center"
+          }}
+        >
+          ×
+        </button>
+        
+        <div style={{ marginBottom: 20 }}>
+          <h2 style={{
+            fontSize: "clamp(24px, 5vw, 32px)",
+            margin: "0 0 8px 0",
+            color: status === "won" ? "#22c55e" : "#ef4444"
+          }}>
+            {status === "won" ? "🎉 Parabéns!" : "😢 Tente novamente"}
+          </h2>
+          
+          {/* Painting name */}
+          <div style={{
+            fontSize: "clamp(18px, 4vw, 24px)",
+            fontWeight: 700,
+            marginBottom: 4,
+            color: "#fff"
+          }}>
+            {formatPaintingName(painting.id)}
+          </div>
+          
+          {/* Artist name */}
+          <div style={{
+            fontSize: "clamp(14px, 3vw, 16px)",
+            color: "#999",
+            marginBottom: 16
+          }}>
+            Artista: <span style={{ color: "#22c55e" }}>{painting.artist}</span>
+          </div>
+          
+          {/* Game result */}
+          <div style={{
+            background: "#111",
+            borderRadius: 12,
+            padding: "16px",
+            marginBottom: 20
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+              <span style={{ color: "#999" }}>Nível {currentGameIdx + 1}/3</span>
+              <span style={{ 
+                color: status === "won" ? "#22c55e" : "#999",
+                fontWeight: 700 
+              }}>
+                {status === "won" ? `+${gameScores[currentGameIdx]} pontos` : "0 pontos"}
+              </span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ color: "#999" }}>Tentativas:</span>
+              <span style={{ color: "#fff", fontWeight: 700 }}>
+                {rows.length}/{MAX_GUESSES}
+              </span>
+            </div>
+          </div>
+          
+          {/* Total score */}
+          <div style={{
+            fontSize: "clamp(16px, 3.5vw, 20px)",
+            marginBottom: 24
+          }}>
+            <span style={{ color: "#999" }}>Pontuação total: </span>
+            <span style={{ color: "#22c55e", fontWeight: 900 }}>
+              {totalScore} pts
+            </span>
+          </div>
+        </div>
+        
+        {/* Buttons container */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <button 
+            onClick={onShare}
+            style={{
+              padding: "16px 24px",
+              background: "#fff",
+              color: "#000",
+              borderRadius: 12,
+              fontWeight: 900,
+              fontSize: "clamp(16px, 3.5vw, 18px)",
+              border: "none",
+              cursor: "pointer",
+              width: "100%",
+              transition: "transform 0.2s ease"
+            }}
+            onTouchStart={e => e.currentTarget.style.transform = "scale(0.98)"}
+            onTouchEnd={e => e.currentTarget.style.transform = "scale(1)"}
+          >
+            📤 Compartilhar
+          </button>
+          
+          {isLastLevel ? (
+            <div style={{
+              background: "#111",
+              borderRadius: 12,
+              padding: "16px",
+              marginTop: 8
+            }}>
+              <div style={{ 
+                fontSize: "clamp(14px, 3vw, 16px)",
+                color: "#22c55e",
+                marginBottom: 8,
+                fontWeight: 700
+              }}>
+                🎊 Desafio diário completo!
+              </div>
+              <div style={{
+                fontSize: "clamp(12px, 2.8vw, 14px)",
+                color: "#999"
+              }}>
+                Volte amanhã para novos desafios!
+              </div>
+            </div>
+          ) : (
+            <button 
+              onClick={onNextGame}
+              style={{
+                padding: "16px 24px",
+                background: "#22c55e",
+                color: "#000",
+                borderRadius: 12,
+                fontWeight: 900,
+                fontSize: "clamp(16px, 3.5vw, 18px)",
+                border: "none",
+                cursor: "pointer",
+                width: "100%",
+                transition: "transform 0.2s ease"
+              }}
+              onTouchStart={e => e.currentTarget.style.transform = "scale(0.98)"}
+              onTouchEnd={e => e.currentTarget.style.transform = "scale(1)"}
+            >
+              ⏭️ Próximo Nível
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ---------- app ----------
 export default function App(){
   const dailyPaintings = getDailyPaintings()
   const [currentGameIdx, setCurrentGameIdx] = useState(0)
   const [totalScore, setTotalScore] = useState(0)
   const [gameScores, setGameScores] = useState([null, null, null])
+  const [showModal, setShowModal] = useState(false)
   
   const painting = dailyPaintings[currentGameIdx]
   const config = GAME_CONFIGS[currentGameIdx]
@@ -108,12 +290,11 @@ export default function App(){
   const [isLoading, setIsLoading] = useState(true)
 
   const playSound = name => {
-  const s = sounds[name]
-  if (!s) return
-  s.currentTime = 0
-  s.play().catch(()=>{})
-}
-
+    const s = sounds[name]
+    if (!s) return
+    s.currentTime = 0
+    s.play().catch(()=>{})
+  }
 
   // ---------- load scores ----------
   useEffect(()=>{
@@ -126,29 +307,28 @@ export default function App(){
   },[])
 
   useEffect(() => {
-  const unlock = () => {
-    Object.values(sounds).forEach(s =>
-      s.play().then(()=>s.pause()).catch(()=>{})
-    )
-    window.removeEventListener("touchstart", unlock)
-  }
-  window.addEventListener("touchstart", unlock, { once:true })
-}, [])
+    const unlock = () => {
+      Object.values(sounds).forEach(s =>
+        s.play().then(()=>s.pause()).catch(()=>{})
+      )
+      window.removeEventListener("touchstart", unlock)
+    }
+    window.addEventListener("touchstart", unlock, { once:true })
+  }, [])
 
-
-  // ---------- init with anti-cheat ----------
+  // ---------- init ----------
   useEffect(()=>{
     setIsLoading(true)
     
-    // Complete reset - clear everything
+    // Reset states
     setRows([])
     setKeyboard({})
     setRevealed([])
     setPool([])
     setStatus("playing")
     setCurrent(Array(pattern.length).fill(""))
+    setShowModal(false)
     
-    // Use requestAnimationFrame to ensure DOM has updated
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         let data = localStorage.getItem(storageKey)
@@ -156,7 +336,6 @@ export default function App(){
         if(data){
           try {
             data = JSON.parse(data)
-            // Validate data integrity
             if(!data.tiles || data.tiles.length !== config.tiles){
               throw new Error("Invalid tiles data")
             }
@@ -177,21 +356,15 @@ export default function App(){
           localStorage.setItem(storageKey, JSON.stringify(data))
         }
 
-        // Set pool first
         setPool(data.tiles)
-        
-        // Then set revealed with explicit slice - ALWAYS start fresh from data
         const revealedTiles = data.tiles.slice(0, data.revealedCount)
-        console.log(`Level ${currentGameIdx + 1}: Revealing ${data.revealedCount} tiles out of ${config.tiles}`, revealedTiles)
         setRevealed(revealedTiles)
-        
         setStatus(data.status)
         setRows(data.rows || [])
 
         const base = pattern.map(c => (c!==null ? c : ""))
         setCurrent(base)
         
-        // Rebuild keyboard state from saved rows
         if(data.rows && data.rows.length > 0){
           const kb = {}
           data.rows.forEach(row => {
@@ -232,7 +405,6 @@ export default function App(){
     if(isLoading || !canvasRef.current || pool.length === 0) return
     if(revealed.length === 0) return
     
-    // Debounce canvas updates
     const timeoutId = setTimeout(() => {
       const img=new Image()
       img.src=painting.image
@@ -245,7 +417,6 @@ export default function App(){
         c.width=size
         c.height=size
         
-        // Clear with black background
         ctx.fillStyle = "#000"
         ctx.fillRect(0,0,size,size)
 
@@ -255,9 +426,6 @@ export default function App(){
         const t=side/config.grid
         const d=size/config.grid
 
-        console.log(`Drawing ${revealed.length} tiles for ${config.grid}x${config.grid} grid`)
-
-        // Only draw revealed tiles with bounds check
         revealed.forEach(i=>{
           if(i >= config.tiles || i < 0) {
             console.warn(`Invalid tile index ${i} for grid ${config.grid}`)
@@ -272,6 +440,17 @@ export default function App(){
     
     return () => clearTimeout(timeoutId)
   },[revealed,painting.image,config.grid,pool.length,config.tiles,isLoading])
+
+  // Show modal when game ends
+  useEffect(() => {
+    if (status !== "playing" && !isLoading) {
+      // Small delay to ensure animations complete
+      const timer = setTimeout(() => {
+        setShowModal(true);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [status, isLoading]);
 
   const revealOne = ()=>{
     const saved = JSON.parse(localStorage.getItem(storageKey))
@@ -324,55 +503,45 @@ export default function App(){
   }
 
   const submit = ()=>{
-  if(status!=="playing") return
-  const letters = current.filter((c,i)=>pattern[i]===null).join("")
-  if(letters.length!==slots) return
+    if(status!=="playing") return
+    const letters = current.filter((c,i)=>pattern[i]===null).join("")
+    if(letters.length!==slots) return
 
-  const guessNorm = normalize(letters)
-  const targetArr = normTarget.split("")
-  const guessArr = guessNorm.split("")
+    const guessNorm = normalize(letters)
+    const targetArr = normTarget.split("")
+    const guessArr = guessNorm.split("")
 
-  const res = Array(slots).fill("absent")
-  const counts={}
+    const res = Array(slots).fill("absent")
+    const counts={}
 
-  // PRIMEIRO: marcar corretos e contar restantes
-  targetArr.forEach((c,i)=>{
-    if(guessArr[i]===c) res[i]="correct"
-    else counts[c]=(counts[c]||0)+1
-  })
+    targetArr.forEach((c,i)=>{
+      if(guessArr[i]===c) res[i]="correct"
+      else counts[c]=(counts[c]||0)+1
+    })
 
-  // SEGUNDO: marcar presentes (letra existe mas lugar errado)
-  guessArr.forEach((c,i)=>{
-    if(res[i]==="correct") return
-    if(counts[c]){
-      res[i]="present"; counts[c]--
-    }
-  })
+    guessArr.forEach((c,i)=>{
+      if(res[i]==="correct") return
+      if(counts[c]){
+        res[i]="present"; counts[c]--
+      }
+    })
 
-  // TERCEIRO: tocar sons baseado no resultado
-  res.forEach(r => {
-    if(r === "correct") playSound("correct")
-    else if(r === "present") playSound("present")
-    else playSound("wrong")
-  })
+    // Update keyboard state
+    let k=0
+    const fullRes = pattern.map(p => p!==null ? "skip" : res[k++])
 
-  let k=0
-  const fullRes = pattern.map(p => p!==null ? "skip" : res[k++])
+    const newRows = [...rows,{letters:[...current], result:fullRes}]
+    setRows(newRows)
 
-  const newRows = [...rows,{letters:[...current], result:fullRes}]
-  setRows(newRows)
-
-  const kb={...keyboard}
-  guessArr.forEach((c,i)=>{
-    if(kb[c]!=="correct") kb[c]=res[i]
-  })
-  setKeyboard(kb)
-
-  // ... resto do código continua igual
+    const kb={...keyboard}
+    guessArr.forEach((c,i)=>{
+      if(kb[c]!=="correct") kb[c]=res[i]
+    })
+    setKeyboard(kb)
 
     if(guessNorm===normTarget){
       if(navigator.vibrate) navigator.vibrate(200)
-        playSound("win")
+      playSound("win")
 
       const finalPool = [...pool]
       setRevealed(finalPool)
@@ -389,7 +558,6 @@ export default function App(){
         rows: newRows
       }))
 
-      // Update total score
       const newGameScores = [...gameScores]
       if(newGameScores[currentGameIdx] === null){
         newGameScores[currentGameIdx] = score
@@ -422,7 +590,6 @@ export default function App(){
         rows: newRows
       }))
 
-      // Update with 0 score
       const newGameScores = [...gameScores]
       if(newGameScores[currentGameIdx] === null){
         newGameScores[currentGameIdx] = 0
@@ -441,7 +608,7 @@ export default function App(){
 
   const handleKey = k=>{
     if(navigator.vibrate) navigator.vibrate(10)
-playSound("click")
+    playSound("click")
 
     if(k==="ENTER") submit()
     else if(k==="⌫") backspace()
@@ -459,9 +626,20 @@ playSound("click")
       navigator.share({text}).catch(()=>{})
     } else {
       navigator.clipboard.writeText(text)
-      alert("Copied!")
+      alert("Copiado para a área de transferência!")
     }
   }
+
+  const handleNextGame = () => {
+    setShowModal(false);
+    if (currentGameIdx < 2) {
+      setCurrentGameIdx(currentGameIdx + 1);
+    }
+  };
+
+  const handleCloseModal = () => {
+    setShowModal(false);
+  };
 
   const cellStyle = r=>({
     width:"clamp(28px,8vw,36px)",
@@ -479,7 +657,7 @@ playSound("click")
     transition:"background 0.3s ease"
   })
 
-      return(
+  return (
     <div style={{
       minHeight:"100dvh",
       width:"100vw",
@@ -520,7 +698,7 @@ playSound("click")
           border:"2px solid #333",
           textAlign:"center"
         }}>
-          <div style={{fontSize:"clamp(12px,3vw,14px)",color:"#999",marginBottom:4}}>Daily Score</div>
+          <div style={{fontSize:"clamp(12px,3vw,14px)",color:"#999",marginBottom:4}}>Pontuação Diária</div>
           <div style={{fontSize:"clamp(32px,8vw,42px)",fontWeight:900,color:"#22c55e",letterSpacing:"-1px"}}>{totalScore}</div>
           
           {/* Progress dots */}
@@ -568,9 +746,9 @@ playSound("click")
             marginBottom:8,
             fontSize:"clamp(11px,2.5vw,13px)"
           }}>
-            <span>Guesses: {rows.length}/{MAX_GUESSES}</span>
+            <span>Tentativas: {rows.length}/{MAX_GUESSES}</span>
             <span style={{color:"#22c55e"}}>
-              Potential: {calculateScore(config.points, rows.length + 1)} pts
+              Pontos: {calculateScore(config.points, rows.length + 1)}
             </span>
           </div>
         )}
@@ -624,76 +802,19 @@ playSound("click")
           ))}
         </div>
 
-        {status!=="playing"&&(
-          <div style={{textAlign:"center",marginTop:16,paddingBottom:16}}>
-            <h2 style={{
-              fontSize:"clamp(18px,4.5vw,24px)",
-              margin:"8px 0"
-            }}>
-              {status==="won"
-                ? `🎉 +${gameScores[currentGameIdx]} pts!`
-                : `❌ ${target}`
-              }
-            </h2>
-            {status==="won" && (
-              <>
-                <div style={{
-                  fontSize:"clamp(14px,3.5vw,16px)",
-                  color:"#22c55e",
-                  fontWeight:700,
-                  marginBottom:4
-                }}>
-                  {formatPaintingName(painting.id)}
-                </div>
-                <div style={{
-                  fontSize:"clamp(12px,3vw,14px)",
-                  color:"#999",
-                  marginBottom:8
-                }}>
-                  Solved in {rows.length} {rows.length===1?"guess":"guesses"}
-                </div>
-              </>
-            )}
-            {status==="lost" && (
-              <div style={{
-                fontSize:"clamp(14px,3.5vw,16px)",
-                color:"#666",
-                marginTop:4,
-                marginBottom:8
-              }}>
-                {formatPaintingName(painting.id)}
-              </div>
-            )}
-            <div style={{display:"flex",gap:8,justifyContent:"center",flexWrap:"wrap",marginTop:12}}>
-              <button onClick={share} style={{
-                padding:"14px 28px",
-                background:"#fff",
-                color:"#000",
-                borderRadius:10,
-                fontWeight:900,
-                fontSize:"clamp(14px,3.5vw,16px)",
-                border:"none",
-                cursor:"pointer",
-                touchAction:"manipulation",
-                WebkitTapHighlightColor:"transparent"
-              }}>Share</button>
-              {currentGameIdx < 2 && (
-                <button onClick={()=>setCurrentGameIdx(currentGameIdx+1)} style={{
-                  padding:"14px 28px",
-                  background:"#22c55e",
-                  color:"#000",
-                  borderRadius:10,
-                  fontWeight:900,
-                  fontSize:"clamp(14px,3.5vw,16px)",
-                  border:"none",
-                  cursor:"pointer",
-                  touchAction:"manipulation",
-                  WebkitTapHighlightColor:"transparent"
-                }}>Next Game →</button>
-              )}
-            </div>
-          </div>
-        )}
+        {/* Modal */}
+        <ResultModal
+          status={status}
+          painting={painting}
+          rows={rows}
+          gameScores={gameScores}
+          currentGameIdx={currentGameIdx}
+          totalScore={totalScore}
+          onShare={share}
+          onNextGame={handleNextGame}
+          onClose={handleCloseModal}
+          showModal={showModal}
+        />
       </div>
     </div>
   )
