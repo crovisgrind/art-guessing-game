@@ -4,9 +4,9 @@ import { paintings } from "./paintings"
 // ---------- sounds ----------
 const sounds = {
   click: new Audio("/sounds/click.wav"),
-  correct: new Audio("/sounds/correct.wav"),
-  present: new Audio("/sounds/present.wav"),
-  wrong: new Audio("/sounds/wrong.wav"),
+  //correct: new Audio("/sounds/correct.wav"),
+  //present: new Audio("/sounds/present.wav"),
+  //wrong: new Audio("/sounds/wrong.wav"),
   reveal: new Audio("/sounds/reveal.wav"),
   win: new Audio("/sounds/correct.wav")
 }
