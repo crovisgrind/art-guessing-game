@@ -324,40 +324,51 @@ export default function App(){
   }
 
   const submit = ()=>{
-    if(status!=="playing") return
-    const letters = current.filter((c,i)=>pattern[i]===null).join("")
-    if(letters.length!==slots) return
+  if(status!=="playing") return
+  const letters = current.filter((c,i)=>pattern[i]===null).join("")
+  if(letters.length!==slots) return
 
-    const guessNorm = normalize(letters)
-    const targetArr = normTarget.split("")
-    const guessArr = guessNorm.split("")
+  const guessNorm = normalize(letters)
+  const targetArr = normTarget.split("")
+  const guessArr = guessNorm.split("")
 
-    const res = Array(slots).fill("absent")
-    const counts={}
+  const res = Array(slots).fill("absent")
+  const counts={}
 
-    targetArr.forEach((c,i)=>{
-      if(guessArr[i]===c) res[i]="correct"
-      else counts[c]=(counts[c]||0)+1
-    })
+  // PRIMEIRO: marcar corretos e contar restantes
+  targetArr.forEach((c,i)=>{
+    if(guessArr[i]===c) res[i]="correct"
+    else counts[c]=(counts[c]||0)+1
+  })
 
-    guessArr.forEach((c,i)=>{
-      if(res[i] === "correct") playSound("correct")
-else if(res[i] === "present") playSound("present")
-else playSound("wrong")
+  // SEGUNDO: marcar presentes (letra existe mas lugar errado)
+  guessArr.forEach((c,i)=>{
+    if(res[i]==="correct") return
+    if(counts[c]){
+      res[i]="present"; counts[c]--
+    }
+  })
 
-    })
+  // TERCEIRO: tocar sons baseado no resultado
+  res.forEach(r => {
+    if(r === "correct") playSound("correct")
+    else if(r === "present") playSound("present")
+    else playSound("wrong")
+  })
 
-    let k=0
-    const fullRes = pattern.map(p => p!==null ? "skip" : res[k++])
+  let k=0
+  const fullRes = pattern.map(p => p!==null ? "skip" : res[k++])
 
-    const newRows = [...rows,{letters:[...current], result:fullRes}]
-    setRows(newRows)
+  const newRows = [...rows,{letters:[...current], result:fullRes}]
+  setRows(newRows)
 
-    const kb={...keyboard}
-    guessArr.forEach((c,i)=>{
-      if(kb[c]!=="correct") kb[c]=res[i]
-    })
-    setKeyboard(kb)
+  const kb={...keyboard}
+  guessArr.forEach((c,i)=>{
+    if(kb[c]!=="correct") kb[c]=res[i]
+  })
+  setKeyboard(kb)
+
+  // ... resto do código continua igual
 
     if(guessNorm===normTarget){
       if(navigator.vibrate) navigator.vibrate(200)
