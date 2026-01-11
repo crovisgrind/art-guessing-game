@@ -1,4 +1,4 @@
-const CACHE_NAME = "art-guess-v3" // era v1
+const CACHE_NAME = "art-guess-v4" // era v1
 const RUNTIME_CACHE = "art-guess-runtime-v1"
 
 // Core assets that should be cached on install

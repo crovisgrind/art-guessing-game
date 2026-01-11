@@ -8,7 +8,7 @@ const sounds = {
   present: new Audio("/sounds/present.wav"),
   wrong: new Audio("/sounds/wrong.wav"),
   reveal: new Audio("/sounds/reveal.wav"),
-  win: new Audio("/sounds/win.wav")
+  win: new Audio("/sounds/correct.wav")
 }
 
 Object.values(sounds).forEach(s => {
