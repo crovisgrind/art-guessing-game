@@ -1,22 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { paintings } from "./paintings"
 
-// ---------- sounds ----------
-const sounds = {
-  click: new Audio("/sounds/click.wav"),
-  //correct: new Audio("/sounds/correct.wav"),
-  //present: new Audio("/sounds/present.wav"),
-  //wrong: new Audio("/sounds/wrong.wav"),
-  reveal: new Audio("/sounds/reveal.wav"),
-  win: new Audio("/sounds/correct.wav")
-}
-
-Object.values(sounds).forEach(s => {
-  s.preload = "auto"
-  s.volume = 0.4
-})
-
-
 const MAX_GUESSES = 6
 const GAME_CONFIGS = [
   { grid: 6, tiles: 36, points: 100 },
@@ -106,14 +90,7 @@ export default function App(){
   const [revealed,setRevealed] = useState([])
   const canvasRef = useRef()
   const [isLoading, setIsLoading] = useState(true)
-
-  const playSound = name => {
-  const s = sounds[name]
-  if (!s) return
-  s.currentTime = 0
-  s.play().catch(()=>{})
-}
-
+  const [showModal, setShowModal] = useState(false)
 
   // ---------- load scores ----------
   useEffect(()=>{
@@ -124,17 +101,6 @@ export default function App(){
       setGameScores(data.games || [null, null, null])
     }
   },[])
-
-  useEffect(() => {
-  const unlock = () => {
-    Object.values(sounds).forEach(s =>
-      s.play().then(()=>s.pause()).catch(()=>{})
-    )
-    window.removeEventListener("touchstart", unlock)
-  }
-  window.addEventListener("touchstart", unlock, { once:true })
-}, [])
-
 
   // ---------- init with anti-cheat ----------
   useEffect(()=>{
@@ -288,7 +254,6 @@ export default function App(){
       }))
       
       setRevealed(newTiles)
-      playSound("reveal")
     }
   }
 
@@ -324,55 +289,43 @@ export default function App(){
   }
 
   const submit = ()=>{
-  if(status!=="playing") return
-  const letters = current.filter((c,i)=>pattern[i]===null).join("")
-  if(letters.length!==slots) return
+    if(status!=="playing") return
+    const letters = current.filter((c,i)=>pattern[i]===null).join("")
+    if(letters.length!==slots) return
 
-  const guessNorm = normalize(letters)
-  const targetArr = normTarget.split("")
-  const guessArr = guessNorm.split("")
+    const guessNorm = normalize(letters)
+    const targetArr = normTarget.split("")
+    const guessArr = guessNorm.split("")
 
-  const res = Array(slots).fill("absent")
-  const counts={}
+    const res = Array(slots).fill("absent")
+    const counts={}
 
-  // PRIMEIRO: marcar corretos e contar restantes
-  targetArr.forEach((c,i)=>{
-    if(guessArr[i]===c) res[i]="correct"
-    else counts[c]=(counts[c]||0)+1
-  })
+    targetArr.forEach((c,i)=>{
+      if(guessArr[i]===c) res[i]="correct"
+      else counts[c]=(counts[c]||0)+1
+    })
 
-  // SEGUNDO: marcar presentes (letra existe mas lugar errado)
-  guessArr.forEach((c,i)=>{
-    if(res[i]==="correct") return
-    if(counts[c]){
-      res[i]="present"; counts[c]--
-    }
-  })
+    guessArr.forEach((c,i)=>{
+      if(res[i]==="correct") return
+      if(counts[c]){
+        res[i]="present"; counts[c]--
+      }
+    })
 
-  // TERCEIRO: tocar sons baseado no resultado
-  res.forEach(r => {
-    if(r === "correct") playSound("correct")
-    else if(r === "present") playSound("present")
-    else playSound("wrong")
-  })
+    let k=0
+    const fullRes = pattern.map(p => p!==null ? "skip" : res[k++])
 
-  let k=0
-  const fullRes = pattern.map(p => p!==null ? "skip" : res[k++])
+    const newRows = [...rows,{letters:[...current], result:fullRes}]
+    setRows(newRows)
 
-  const newRows = [...rows,{letters:[...current], result:fullRes}]
-  setRows(newRows)
-
-  const kb={...keyboard}
-  guessArr.forEach((c,i)=>{
-    if(kb[c]!=="correct") kb[c]=res[i]
-  })
-  setKeyboard(kb)
-
-  // ... resto do código continua igual
+    const kb={...keyboard}
+    guessArr.forEach((c,i)=>{
+      if(kb[c]!=="correct") kb[c]=res[i]
+    })
+    setKeyboard(kb)
 
     if(guessNorm===normTarget){
       if(navigator.vibrate) navigator.vibrate(200)
-        playSound("win")
 
       const finalPool = [...pool]
       setRevealed(finalPool)
@@ -441,8 +394,6 @@ export default function App(){
 
   const handleKey = k=>{
     if(navigator.vibrate) navigator.vibrate(10)
-playSound("click")
-
     if(k==="ENTER") submit()
     else if(k==="⌫") backspace()
     else if(isLetter(k)) typeLetter(k)
@@ -694,7 +645,177 @@ playSound("click")
             </div>
           </div>
         )}
+
+        {/* Victory/Loss Modal */}
+        {showModal && (
+          <div 
+            onClick={()=>setShowModal(false)}
+            style={{
+              position:"fixed",
+              top:0,
+              left:0,
+              right:0,
+              bottom:0,
+              background:"rgba(0,0,0,0.9)",
+              display:"flex",
+              alignItems:"center",
+              justifyContent:"center",
+              zIndex:1000,
+              animation:"fadeIn 0.3s ease",
+              padding:"20px"
+            }}
+          >
+            <div 
+              onClick={(e)=>e.stopPropagation()}
+              style={{
+                background:"linear-gradient(135deg,#1a1a1a,#252525)",
+                borderRadius:20,
+                padding:"32px 24px",
+                maxWidth:400,
+                width:"100%",
+                border:"2px solid #333",
+                textAlign:"center",
+                animation:"slideUp 0.3s ease"
+              }}
+            >
+              <div style={{fontSize:"clamp(48px,12vw,64px)",marginBottom:16}}>
+                {status==="won" ? "🎉" : "😔"}
+              </div>
+              
+              <h2 style={{
+                fontSize:"clamp(24px,6vw,32px)",
+                margin:"0 0 8px 0",
+                color: status==="won" ? "#22c55e" : "#ef4444"
+              }}>
+                {status==="won" ? "Perfect!" : "Game Over"}
+              </h2>
+
+              <div style={{
+                fontSize:"clamp(16px,4vw,20px)",
+                color:"#999",
+                marginBottom:8
+              }}>
+                {formatPaintingName(painting.id)}
+              </div>
+
+              <div style={{
+                fontSize:"clamp(14px,3.5vw,16px)",
+                color:"#666",
+                marginBottom:20
+              }}>
+                by {target}
+              </div>
+
+              {status==="won" && (
+                <>
+                  <div style={{
+                    fontSize:"clamp(40px,10vw,56px)",
+                    fontWeight:900,
+                    color:"#22c55e",
+                    marginBottom:8
+                  }}>
+                    +{gameScores[currentGameIdx]} pts
+                  </div>
+                  <div style={{
+                    fontSize:"clamp(13px,3vw,15px)",
+                    color:"#999",
+                    marginBottom:24
+                  }}>
+                    Solved in {rows.length} {rows.length===1?"guess":"guesses"}
+                  </div>
+                </>
+              )}
+
+              {status==="lost" && (
+                <div style={{
+                  fontSize:"clamp(13px,3vw,15px)",
+                  color:"#999",
+                  marginBottom:24
+                }}>
+                  Better luck next time!
+                </div>
+              )}
+
+              <div style={{
+                display:"flex",
+                flexDirection:"column",
+                gap:12,
+                marginBottom:16
+              }}>
+                {currentGameIdx < 2 && (
+                  <button 
+                    onClick={()=>{
+                      setShowModal(false)
+                      setCurrentGameIdx(currentGameIdx+1)
+                    }} 
+                    style={{
+                      padding:"16px 32px",
+                      background:"#22c55e",
+                      color:"#000",
+                      borderRadius:12,
+                      fontWeight:900,
+                      fontSize:"clamp(16px,4vw,18px)",
+                      border:"none",
+                      cursor:"pointer",
+                      touchAction:"manipulation",
+                      WebkitTapHighlightColor:"transparent"
+                    }}
+                  >
+                    Next Level →
+                  </button>
+                )}
+                
+                <button 
+                  onClick={()=>{
+                    setShowModal(false)
+                    share()
+                  }} 
+                  style={{
+                    padding:"16px 32px",
+                    background:"#fff",
+                    color:"#000",
+                    borderRadius:12,
+                    fontWeight:900,
+                    fontSize:"clamp(16px,4vw,18px)",
+                    border:"none",
+                    cursor:"pointer",
+                    touchAction:"manipulation",
+                    WebkitTapHighlightColor:"transparent"
+                  }}
+                >
+                  Share Results
+                </button>
+              </div>
+
+              <button 
+                onClick={()=>setShowModal(false)}
+                style={{
+                  padding:"12px",
+                  background:"transparent",
+                  color:"#666",
+                  border:"none",
+                  fontSize:"clamp(13px,3vw,14px)",
+                  cursor:"pointer",
+                  textDecoration:"underline"
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
       </div>
+
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes slideUp {
+          from { transform: translateY(50px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+      `}</style>
     </div>
   )
 }
